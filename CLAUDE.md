@@ -66,13 +66,14 @@ Assets/Tests/EditMode/  Assets/Tests/PlayMode/
 
 - **Test primero** en toda lógica pura: escribir la prueba EditMode antes del código.
 - Red y física: pruebas PlayMode y verificación manual con Multiplayer Play Mode (ParrelSync si falla con FishNet).
-- Correr las pruebas desde la terminal (ajusta la ruta del ejecutable de Unity):
+- Correr las pruebas en local antes de subir, con el Editor cerrado: `.\run-tests.ps1` (EditMode) o `.\run-tests.ps1 -Platform PlayMode`. Toma la versión de Unity de `ProjectVersion.txt`; equivale a:
 
 ```
 Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResults results-editmode.xml
 ```
 
-- No marcar una tarea como terminada si alguna prueba falla.
+- **CI activo:** `.github/workflows/tests.yml` corre las pruebas EditMode con GameCI en cada push (y a mano con `workflow_dispatch`). Los resultados salen como check "EditMode Test Results" en GitHub. Secrets: `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`.
+- No marcar una tarea como terminada si alguna prueba falla, en local o en el CI.
 
 ## Cómo trabajar en este repo
 
