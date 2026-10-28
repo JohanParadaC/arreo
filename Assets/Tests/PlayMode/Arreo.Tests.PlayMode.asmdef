@@ -5,7 +5,8 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Arreo.Core",
-        "Arreo.Horse"
+        "Arreo.Horse",
+        "Arreo.Herd"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
