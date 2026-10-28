@@ -2,6 +2,7 @@
     "name": "Arreo.Prototype",
     "rootNamespace": "Arreo.Prototype",
     "references": [
+        "Arreo.Herd",
         "Arreo.Horse",
         "Unity.InputSystem"
     ],

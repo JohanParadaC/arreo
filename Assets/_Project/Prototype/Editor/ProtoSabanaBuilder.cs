@@ -1,10 +1,12 @@
 using System.IO;
 using System.Linq;
+using Arreo.Herd;
 using Arreo.Horse;
 using Arreo.Player;
 using Unity.Cinemachine;
 using Unity.Cinemachine.TargetTracking;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -13,38 +15,64 @@ using UnityEngine.SceneManagement;
 namespace Arreo.Prototype.Editor
 {
     /// <summary>
-    /// DISPOSABLE (week 2 prototype): builds the Proto_Sabana test scene from code.
-    /// Rebuilding overwrites the scene but keeps the HorseSettings asset, so tuning survives.
+    /// DISPOSABLE (weeks 2-3 prototype): builds the Proto_Sabana test scene from code.
+    /// Rebuilding overwrites the scene but keeps the settings assets, so tuning survives.
     /// </summary>
     public static class ProtoSabanaBuilder
     {
         private const string Root = "Assets/_Project/Prototype";
         private const string ScenePath = Root + "/Proto_Sabana.unity";
         private const string GeneratedFolder = Root + "/Generated";
-        private const string SettingsFolder = "Assets/_Project/Data/Horse";
-        private const string SettingsPath = SettingsFolder + "/HorseSettings_Proto.asset";
+        private const string HorseSettingsFolder = "Assets/_Project/Data/Horse";
+        private const string HorseSettingsPath = HorseSettingsFolder + "/HorseSettings_Proto.asset";
+        private const string HerdSettingsFolder = "Assets/_Project/Data/Herd";
+        private const string HerdSettingsPath = HerdSettingsFolder + "/HerdSettings_Proto.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
+        private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
 
         private const float GroundSize = 600f;
         private const float ObstacleRadius = 270f;
         private const float SpawnClearRadius = 15f;
 
+        private static readonly Vector3 HerdCenter = new Vector3(45f, 0f, 55f);
+        private const float HerdClearRadius = 25f;
+        private static readonly Vector3 CorralCenter = new Vector3(-55f, 0f, -55f);
+        private const float CorralSize = 24f;
+        private const float GateWidth = 8f;
+        private const float CorralClearRadius = 42f;
+
         [MenuItem("Arreo/Prototype/Rebuild Proto_Sabana")]
         public static void Build()
         {
             EnsureFolder(GeneratedFolder);
-            EnsureFolder(SettingsFolder);
+            EnsureFolder(HorseSettingsFolder);
+            EnsureFolder(HerdSettingsFolder);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
-            HorseSettings settings = LoadOrCreateSettings();
+            PhysicsMaterial frictionless = CreateFrictionlessMaterial();
 
             CreateGround();
+            CreateBorders();
             CreateObstacles();
-            HorseController horse = CreateHorse(settings, out Transform cameraTarget);
+            HorseController horse = CreateHorse(LoadOrCreate<HorseSettings>(HorseSettingsPath), frictionless, out Transform cameraTarget);
             CreateCamera(cameraTarget);
+            ActiveHerd herd = CreateHerd(horse, frictionless);
+            Corral corral = CreateCorral(horse.transform, out ProtoGate gate);
+
+            var drive = new GameObject("ProtoDrive").AddComponent<ProtoDrive>();
+            SetReference(drive, "_herd", herd);
+            SetReference(drive, "_corral", corral);
+            SetReference(drive, "_horse", horse);
 
             var hud = new GameObject("ProtoHud").AddComponent<ProtoHud>();
             SetReference(hud, "_horse", horse);
+            SetReference(hud, "_drive", drive);
+            SetReference(hud, "_gate", gate);
+
+            var benchmark = new GameObject("ProtoBenchmark").AddComponent<ProtoBenchmark>();
+            SetReference(benchmark, "_herd", herd);
+            SetReference(benchmark, "_horse", horse);
+            SetReference(benchmark, "_riderInput", horse.GetComponent<RiderInput>());
 
             Light sun = Object.FindFirstObjectByType<Light>();
             sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
@@ -54,15 +82,30 @@ namespace Arreo.Prototype.Editor
             Debug.Log($"[ProtoSabanaBuilder] Saved {ScenePath}");
         }
 
-        private static HorseSettings LoadOrCreateSettings()
+        [MenuItem("Arreo/Prototype/Build FPS Benchmark Player")]
+        public static void BuildBenchmarkPlayer()
         {
-            var settings = AssetDatabase.LoadAssetAtPath<HorseSettings>(SettingsPath);
-            if (settings != null)
-                return settings;
+            BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { ScenePath },
+                locationPathName = BenchmarkPlayerPath,
+                target = BuildTarget.StandaloneWindows64,
+                options = BuildOptions.None,
+            });
+            Debug.Log($"[ProtoSabanaBuilder] Benchmark player build: {report.summary.result} -> {BenchmarkPlayerPath}");
+            if (Application.isBatchMode && report.summary.result != BuildResult.Succeeded)
+                EditorApplication.Exit(1);
+        }
 
-            settings = ScriptableObject.CreateInstance<HorseSettings>();
-            AssetDatabase.CreateAsset(settings, SettingsPath);
-            return settings;
+        private static T LoadOrCreate<T>(string path) where T : ScriptableObject
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset != null)
+                return asset;
+
+            asset = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(asset, path);
+            return asset;
         }
 
         private static void CreateGround()
@@ -78,6 +121,17 @@ namespace Arreo.Prototype.Editor
             // One checker repeat (2x2 tiles) every 8 m, so each tile is 4 m: helps read speed.
             material.SetTextureScale("_BaseMap", Vector2.one * (GroundSize / 8f));
             ground.GetComponent<Renderer>().sharedMaterial = material;
+        }
+
+        private static void CreateBorders()
+        {
+            var parent = new GameObject("Borders").transform;
+            Material material = CreateMaterial("Border", new Color(0.3f, 0.3f, 0.35f));
+            float half = GroundSize / 2f;
+            CreateBlock("Border", parent, new Vector3(0f, 1.5f, half), Quaternion.identity, new Vector3(GroundSize, 3f, 1f), material);
+            CreateBlock("Border", parent, new Vector3(0f, 1.5f, -half), Quaternion.identity, new Vector3(GroundSize, 3f, 1f), material);
+            CreateBlock("Border", parent, new Vector3(half, 1.5f, 0f), Quaternion.identity, new Vector3(1f, 3f, GroundSize), material);
+            CreateBlock("Border", parent, new Vector3(-half, 1.5f, 0f), Quaternion.identity, new Vector3(1f, 3f, GroundSize), material);
         }
 
         private static void CreateObstacles()
@@ -118,7 +172,7 @@ namespace Arreo.Prototype.Editor
             }
         }
 
-        private static HorseController CreateHorse(HorseSettings settings, out Transform cameraTarget)
+        private static HorseController CreateHorse(HorseSettings settings, PhysicsMaterial frictionless, out Transform cameraTarget)
         {
             var root = new GameObject("Horse");
 
@@ -133,7 +187,7 @@ namespace Arreo.Prototype.Editor
             collider.radius = 0.7f;
             collider.height = 2.6f;
             collider.center = new Vector3(0f, 0.7f, 0f);
-            collider.sharedMaterial = CreateFrictionlessMaterial();
+            collider.sharedMaterial = frictionless;
 
             var controller = root.AddComponent<HorseController>();
             SetReference(controller, "_settings", settings);
@@ -210,6 +264,104 @@ namespace Arreo.Prototype.Editor
                 Debug.Log($"[ProtoSabanaBuilder] Camera axis '{axis.Name}' -> {(axis.Input.InputAction != null ? axis.Input.InputAction.name : "NO ACTION")}, gain {axis.Input.Gain}");
         }
 
+        private static ActiveHerd CreateHerd(HorseController horse, PhysicsMaterial frictionless)
+        {
+            var go = new GameObject("Herd");
+            go.transform.position = HerdCenter;
+            var herd = go.AddComponent<ActiveHerd>();
+            SetReference(herd, "_settings", LoadOrCreate<HerdSettings>(HerdSettingsPath));
+            SetReference(herd, "_cowPrefab", CreateCowPrefab(frictionless));
+            SetReference(herd, "_rider", horse.GetComponent<Rigidbody>());
+            return herd;
+        }
+
+        private static Rigidbody CreateCowPrefab(PhysicsMaterial frictionless)
+        {
+            var root = new GameObject("Cow_Proto");
+            var body = root.AddComponent<Rigidbody>();
+            body.mass = 400f;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            body.constraints = RigidbodyConstraints.FreezeRotation;
+
+            var collider = root.AddComponent<CapsuleCollider>();
+            collider.direction = 2;
+            collider.radius = 0.55f;
+            collider.height = 2.1f;
+            collider.center = new Vector3(0f, 0.55f, 0f);
+            collider.sharedMaterial = frictionless;
+
+            // Cebu-like llanero cattle: pale coat, hump, dark horns.
+            Material coat = CreateMaterial("CowCoat", new Color(0.86f, 0.84f, 0.78f));
+            Material dark = CreateMaterial("CowDark", new Color(0.2f, 0.18f, 0.16f));
+            AddPart(root.transform, PrimitiveType.Cube, "Body", new Vector3(0f, 0.95f, 0f), new Vector3(0.7f, 0.7f, 1.7f), coat);
+            AddPart(root.transform, PrimitiveType.Cube, "Hump", new Vector3(0f, 1.38f, 0.45f), new Vector3(0.4f, 0.3f, 0.4f), coat);
+            AddPart(root.transform, PrimitiveType.Cube, "Head", new Vector3(0f, 1.05f, 1.05f), new Vector3(0.35f, 0.4f, 0.55f), coat);
+            AddPart(root.transform, PrimitiveType.Cube, "Horns", new Vector3(0f, 1.32f, 1.05f), new Vector3(0.7f, 0.08f, 0.08f), dark);
+            foreach (float x in new[] { -0.22f, 0.22f })
+            foreach (float z in new[] { -0.6f, 0.6f })
+                AddPart(root.transform, PrimitiveType.Cube, "Leg", new Vector3(x, 0.3f, z), new Vector3(0.15f, 0.6f, 0.15f), dark);
+
+            string path = $"{GeneratedFolder}/Cow_Proto.prefab";
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            Object.DestroyImmediate(root);
+            return prefab.GetComponent<Rigidbody>();
+        }
+
+        private static Corral CreateCorral(Transform rider, out ProtoGate gate)
+        {
+            var root = new GameObject("Corral").transform;
+            root.position = CorralCenter;
+            var corral = root.gameObject.AddComponent<Corral>();
+            Material wood = CreateMaterial("Fence", new Color(0.42f, 0.3f, 0.2f));
+
+            float half = CorralSize / 2f;
+            float gapHalf = GateWidth / 2f;
+            float sideLength = half - gapHalf;
+            var fence = new Vector3(0.3f, 1.6f, 1f);
+
+            void Wall(Vector3 localCenter, float yaw, float length) => CreateBlock("Fence", root,
+                CorralCenter + localCenter + Vector3.up * 0.8f, Quaternion.Euler(0f, yaw, 0f),
+                new Vector3(fence.x, fence.y, length), wood);
+
+            Wall(new Vector3(0f, 0f, -half), 90f, CorralSize);
+            Wall(new Vector3(-half, 0f, 0f), 0f, CorralSize);
+            Wall(new Vector3(half, 0f, 0f), 0f, CorralSize);
+            // North side: two stretches with the gate opening between them.
+            Wall(new Vector3(-(gapHalf + sideLength / 2f), 0f, half), 90f, sideLength);
+            Wall(new Vector3(gapHalf + sideLength / 2f, 0f, half), 90f, sideLength);
+
+            // Wing fences opening out from the gate like a funnel.
+            const float wingLength = 16f;
+            const float wingAngle = 35f;
+            foreach (float side in new[] { -1f, 1f })
+            {
+                Vector3 start = new Vector3(side * gapHalf, 0f, half);
+                Vector3 direction = Quaternion.Euler(0f, side * wingAngle, 0f) * Vector3.forward;
+                Wall(start + direction * (wingLength / 2f), side * wingAngle, wingLength);
+            }
+
+            // Gate: a kinematic hinge at the west edge of the opening; closed, the panel spans it.
+            var hinge = new GameObject("GateHinge");
+            hinge.transform.SetParent(root, false);
+            hinge.transform.position = CorralCenter + new Vector3(-gapHalf, 0f, half);
+            var hingeBody = hinge.AddComponent<Rigidbody>();
+            hingeBody.isKinematic = true;
+            hingeBody.interpolation = RigidbodyInterpolation.Interpolate;
+            GameObject panel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            panel.name = "GatePanel";
+            panel.transform.SetParent(hinge.transform, false);
+            panel.transform.localPosition = new Vector3(gapHalf, 0.8f, 0f);
+            panel.transform.localScale = new Vector3(GateWidth, 1.6f, 0.2f);
+            panel.GetComponent<Renderer>().sharedMaterial = CreateMaterial("Gate", new Color(0.62f, 0.45f, 0.28f));
+
+            gate = hinge.AddComponent<ProtoGate>();
+            SetReference(gate, "_hinge", hingeBody);
+            SetReference(gate, "_rider", rider);
+            SetReference(gate, "_interact", FindAction("Player/Interact"));
+
+            return corral;
+        }
+
         private static InputActionReference FindAction(string path)
         {
             InputActionReference reference = AssetDatabase.LoadAllAssetsAtPath(InputActionsPath)
@@ -246,12 +398,14 @@ namespace Arreo.Prototype.Editor
 
         private static Vector3 RandomGroundPoint(System.Random random)
         {
-            Vector2 point;
+            Vector3 point;
             do
             {
-                point = new Vector2(Range(random, -ObstacleRadius, ObstacleRadius), Range(random, -ObstacleRadius, ObstacleRadius));
-            } while (point.magnitude < SpawnClearRadius);
-            return new Vector3(point.x, 0f, point.y);
+                point = new Vector3(Range(random, -ObstacleRadius, ObstacleRadius), 0f, Range(random, -ObstacleRadius, ObstacleRadius));
+            } while (point.magnitude < SpawnClearRadius
+                     || Vector3.Distance(point, HerdCenter) < HerdClearRadius
+                     || Vector3.Distance(point, CorralCenter) < CorralClearRadius);
+            return point;
         }
 
         private static float Range(System.Random random, float min, float max) => min + (float)random.NextDouble() * (max - min);
@@ -266,8 +420,8 @@ namespace Arreo.Prototype.Editor
 
         private static PhysicsMaterial CreateFrictionlessMaterial()
         {
-            // No friction: the controller drives velocity itself, ground friction would only fight it.
-            var material = new PhysicsMaterial("HorseFrictionless")
+            // No friction: controllers drive velocity themselves, ground friction would only fight them.
+            var material = new PhysicsMaterial("Frictionless")
             {
                 dynamicFriction = 0f,
                 staticFriction = 0f,

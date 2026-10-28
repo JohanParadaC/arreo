@@ -11,6 +11,8 @@ namespace Arreo.Prototype
     public sealed class ProtoHud : MonoBehaviour
     {
         [SerializeField] private HorseController _horse;
+        [SerializeField] private ProtoDrive _drive;
+        [SerializeField] private ProtoGate _gate;
 
         private GUIStyle _style;
 
@@ -47,6 +49,26 @@ namespace Arreo.Prototype
             GUI.DrawTexture(new Rect(100, 47, 180 * stamina.Normalized, 18), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(20, 72, 270, 45), "WASD/stick: riendas · Shift: galopar\nRatón: cámara · Esc: soltar cursor");
+
+            DrawDrive();
+        }
+
+        private void DrawDrive()
+        {
+            var drive = _drive != null ? _drive.Drive : null;
+            if (drive == null)
+                return;
+
+            int minutes = (int)(drive.ElapsedSeconds / 60f);
+            float seconds = drive.ElapsedSeconds % 60f;
+            string clock = $"{minutes}:{seconds:00.0}";
+
+            GUI.Box(new Rect(10, 125, 280, 85), GUIContent.none);
+            GUI.Label(new Rect(20, 130, 260, 25), $"Reses en el corral: {drive.InCorral}/{drive.Total}", _style);
+            string status = drive.IsComplete ? $"¡Arreo completo en {clock}!" : drive.HasStarted ? $"Tiempo: {clock}" : "Tiempo: arranca al moverte";
+            GUI.Label(new Rect(20, 155, 260, 25), status, _style);
+            if (_gate != null && _gate.RiderInReach)
+                GUI.Label(new Rect(20, 182, 260, 25), $"E: {(_gate.IsOpen ? "cerrar" : "abrir")} la puerta");
         }
     }
 }
