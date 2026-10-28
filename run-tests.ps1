@@ -1,10 +1,12 @@
 # Runs the Unity tests locally in batchmode, the same EditMode suite CI runs.
 # Usage: .\run-tests.ps1                 (EditMode)
 #        .\run-tests.ps1 -Platform PlayMode
+#        .\run-tests.ps1 -Filter HorseStaminaTests   (only tests whose name matches)
 # Close the Unity Editor first: batchmode can't open a project that is already open.
 param(
     [ValidateSet('EditMode', 'PlayMode')]
     [string]$Platform = 'EditMode',
+    [string]$Filter,
     [string]$UnityPath
 )
 
@@ -33,7 +35,11 @@ $unityArgs = @(
     '-testResults', "`"$results`"",
     '-logFile', "`"$log`""
 )
-$process = Start-Process -FilePath $UnityPath -ArgumentList $unityArgs -Wait -PassThru -NoNewWindow
+if ($Filter) { $unityArgs += @('-testFilter', $Filter) }
+# WaitForExit instead of -Wait: -Wait also waits for helpers Unity leaves running (Licensing Client).
+$process = Start-Process -FilePath $UnityPath -ArgumentList $unityArgs -PassThru -NoNewWindow
+$null = $process.Handle # without touching Handle first, ExitCode comes back empty in PowerShell 5.1
+$process.WaitForExit()
 
 if (-not (Test-Path $results)) {
     Write-Host "No results file. Check the log: $log" -ForegroundColor Red
