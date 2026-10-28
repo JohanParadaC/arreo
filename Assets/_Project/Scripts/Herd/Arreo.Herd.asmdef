@@ -1,0 +1,16 @@
+{
+    "name": "Arreo.Herd",
+    "rootNamespace": "Arreo.Herd",
+    "references": [
+        "Arreo.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

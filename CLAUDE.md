@@ -1,0 +1,98 @@
+# Arreo — guía para Claude Code
+
+Co-op de 1 a 5 llaneros en la Orinoquía colombiana: arrear ganado, enlazar con soga y levantar el hato. Unity 6, red con FishNet, lanzamiento en Steam Early Access.
+
+Documentación completa (visión, decisiones, arquitectura, roadmap): https://claude.ai/artifact/KmV7E1NSBNZBZaRNNbPpXT
+
+## Estado actual
+
+- Fantasía: mezcla, caos en el arreo y calma en el hato.
+- Fase: prototipo (semanas 1–4). Ver el roadmap antes de proponer trabajo fuera de la semana en curso.
+- Desarrollador: Johan, solo, ~15 h por semana.
+
+## Stack
+
+| Pieza | Elección |
+| --- | --- |
+| Motor | Unity 6 LTS, C# |
+| Red | FishNet, anfitrión-cliente |
+| Transporte local | Tugboat (incluido en FishNet) |
+| Transporte Steam | FishySteamworks + Steamworks.NET; App ID de pruebas 480 hasta pagar Steam Direct |
+| Pruebas | Unity Test Framework (EditMode y PlayMode), Multiplayer Play Mode |
+| CI | GitHub Actions + GameCI |
+| Control de versiones | GitHub con Git LFS |
+| Plataforma | Solo Windows |
+| Render pipeline | URP (plantilla Universal 3D) |
+
+Pendiente de confirmar: UI de la libreta (propuesta: UI Toolkit).
+
+## Reglas de arquitectura (no negociables)
+
+1. **El anfitrión tiene la autoridad.** Toda la lógica de juego corre en el servidor. Un cliente nunca decide si enlazó una res, si ganó plata o si una res murió: envía una intención con `ServerRpc` y el servidor valida.
+2. **Manada en dos niveles.** Reses abstractas (datos por potrero) y reses activas (30–50 con física e IA de manada). Nunca instanciar todo el hato como GameObjects.
+3. **La soga física solo existe en el servidor.** A los clientes llegan los dos extremos y la tensión; ellos dibujan la curva con un LineRenderer.
+4. **El canto es una grabación, no voz en vivo.** Cada jugador graba su canto una vez (WAV mono 16 kHz, 5–15 s) y lo guarda en su perfil local. Al entrar a una partida se envía en partes al anfitrión, que lo reparte a los demás, una sola vez por sesión. Al mantener el botón suena en 3D para todos y el servidor aplica el efecto en la manada. Sin grabación, se usa el canto fijo del juego. No hay chat de voz.
+5. **Reloj, estaciones y guardado viven en el anfitrión.** El guardado es JSON con número de versión desde el primer día.
+6. **Separar lógica pura de MonoBehaviours.** Las reglas (economía, reproducción, conteos, hambre, cansancio y sueño) van en clases C# planas que se pueden probar sin escena.
+
+## Estructura
+
+```
+Assets/_Project/Scripts/
+  Core/      tiempo, estaciones, guardado, eventos
+  Net/       conexión, lobbies, transportes
+  Herd/      manada abstracta y activa, boids
+  Rope/      soga física y visual
+  Horse/     control del caballo
+  Player/    jinete y acciones a pie
+  Voice/     grabación, envío y reproducción del canto
+  Economy/   plata, feria, encargos
+  UI/        libreta del hato
+Assets/Tests/EditMode/  Assets/Tests/PlayMode/
+```
+
+- Una assembly definition por carpeta. Namespace `Arreo.<Carpeta>`, por ejemplo `Arreo.Herd`.
+- Las dependencias van de los sistemas hacia `Core`, nunca al revés.
+
+## Convenciones de código
+
+- Código, nombres de clases y comentarios en inglés; términos llaneros sin traducir cuando son el nombre del concepto (`Cabrestero`, `Jaguey`, `HerdPunta`).
+- PascalCase para tipos y métodos públicos, `_camelCase` para campos privados, `[SerializeField] private` en vez de campos públicos.
+- Datos de diseño (razas, precios, encargos) en ScriptableObjects, no en constantes.
+- Nada de `Find*` ni `GetComponent` dentro de `Update`.
+- Sin singletons nuevos sin justificarlo en el registro de decisiones.
+
+## Pruebas
+
+- **Test primero** en toda lógica pura: escribir la prueba EditMode antes del código.
+- Red y física: pruebas PlayMode y verificación manual con Multiplayer Play Mode (ParrelSync si falla con FishNet).
+- Correr las pruebas desde la terminal (ajusta la ruta del ejecutable de Unity):
+
+```
+Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResults results-editmode.xml
+```
+
+- No marcar una tarea como terminada si alguna prueba falla.
+
+## Cómo trabajar en este repo
+
+- Antes de cambiar algo grande, revisar el registro de decisiones. Una decisión sellada (D01–D70) no se cambia en silencio: si hay que tocarla, proponer el cambio y anotarlo con fecha.
+- Trabajar dentro de la semana en curso del roadmap; lo que no toca, va a una lista de ideas.
+- Commits pequeños, uno por cambio con sentido.
+- Si algo del prototipo es desechable (semanas 2–4), decirlo explícitamente en vez de pulirlo.
+
+## Glosario llanero
+
+| Término | Significado |
+| --- | --- |
+| Hato | Finca ganadera; la base del jugador |
+| Punta de ganado | Grupo de reses que se arrea junto |
+| Arreo | Mover la manada de un lugar a otro |
+| Cabrestero | Quien guía la manada cantando |
+| Barajustada | Estampida del ganado |
+| Cuatrero | Ladrón de ganado |
+| Jagüey | Pozo o depósito de agua para el ganado |
+| Morichal | Zona de palmas de moriche junto al agua |
+| Coleo | Deporte de tumbar el toro por la cola desde el caballo |
+| Chimó | Pasta de tabaco que se masca en el llano |
+| Herrar | Marcar el ganado con el hierro del hato |

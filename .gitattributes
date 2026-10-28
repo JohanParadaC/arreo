@@ -1,0 +1,96 @@
+# Normalize text files to LF in the repo
+* text=auto
+
+# Code
+*.cs        text diff=csharp
+*.asmdef    text eol=lf
+*.asmref    text eol=lf
+*.json      text eol=lf
+*.uss       text eol=lf
+*.uxml      text eol=lf
+*.shader    text
+*.hlsl      text
+*.yml       text eol=lf
+*.md        text
+
+# Unity YAML (Force Text). Unity writes LF; pin it to avoid line-ending churn.
+# merge=unityyamlmerge falls back to the normal text merge until the driver is configured.
+*.meta              text eol=lf merge=unityyamlmerge
+*.unity             text eol=lf merge=unityyamlmerge
+*.prefab            text eol=lf merge=unityyamlmerge
+*.asset             text eol=lf merge=unityyamlmerge
+*.mat               text eol=lf merge=unityyamlmerge
+*.anim              text eol=lf merge=unityyamlmerge
+*.controller        text eol=lf merge=unityyamlmerge
+*.overrideController text eol=lf merge=unityyamlmerge
+*.physicMaterial    text eol=lf merge=unityyamlmerge
+*.physicsMaterial2D text eol=lf merge=unityyamlmerge
+*.playable          text eol=lf merge=unityyamlmerge
+*.mask              text eol=lf merge=unityyamlmerge
+*.brush             text eol=lf merge=unityyamlmerge
+*.flare             text eol=lf merge=unityyamlmerge
+*.fontsettings      text eol=lf merge=unityyamlmerge
+*.guiskin           text eol=lf merge=unityyamlmerge
+*.giparams          text eol=lf merge=unityyamlmerge
+*.renderTexture     text eol=lf merge=unityyamlmerge
+*.spriteatlas       text eol=lf merge=unityyamlmerge
+*.spriteatlasv2     text eol=lf merge=unityyamlmerge
+*.terrainlayer      text eol=lf merge=unityyamlmerge
+*.mixer             text eol=lf merge=unityyamlmerge
+*.shadervariants    text eol=lf merge=unityyamlmerge
+*.preset            text eol=lf merge=unityyamlmerge
+*.lighting          text eol=lf merge=unityyamlmerge
+*.inputactions      text eol=lf
+
+# Git LFS — 3D models
+*.fbx   filter=lfs diff=lfs merge=lfs -text
+*.obj   filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.max   filter=lfs diff=lfs merge=lfs -text
+*.ma    filter=lfs diff=lfs merge=lfs -text
+*.mb    filter=lfs diff=lfs merge=lfs -text
+*.3ds   filter=lfs diff=lfs merge=lfs -text
+*.dae   filter=lfs diff=lfs merge=lfs -text
+*.glb   filter=lfs diff=lfs merge=lfs -text
+*.gltf  filter=lfs diff=lfs merge=lfs -text
+
+# Git LFS — images and textures
+*.png   filter=lfs diff=lfs merge=lfs -text
+*.jpg   filter=lfs diff=lfs merge=lfs -text
+*.jpeg  filter=lfs diff=lfs merge=lfs -text
+*.tga   filter=lfs diff=lfs merge=lfs -text
+*.tif   filter=lfs diff=lfs merge=lfs -text
+*.tiff  filter=lfs diff=lfs merge=lfs -text
+*.bmp   filter=lfs diff=lfs merge=lfs -text
+*.gif   filter=lfs diff=lfs merge=lfs -text
+*.psd   filter=lfs diff=lfs merge=lfs -text
+*.psb   filter=lfs diff=lfs merge=lfs -text
+*.exr   filter=lfs diff=lfs merge=lfs -text
+*.hdr   filter=lfs diff=lfs merge=lfs -text
+*.kra   filter=lfs diff=lfs merge=lfs -text
+*.xcf   filter=lfs diff=lfs merge=lfs -text
+*.spp   filter=lfs diff=lfs merge=lfs -text
+*.sbsar filter=lfs diff=lfs merge=lfs -text
+
+# Git LFS — audio and video
+*.wav   filter=lfs diff=lfs merge=lfs -text
+*.ogg   filter=lfs diff=lfs merge=lfs -text
+*.mp3   filter=lfs diff=lfs merge=lfs -text
+*.aif   filter=lfs diff=lfs merge=lfs -text
+*.aiff  filter=lfs diff=lfs merge=lfs -text
+*.flac  filter=lfs diff=lfs merge=lfs -text
+*.mp4   filter=lfs diff=lfs merge=lfs -text
+*.mov   filter=lfs diff=lfs merge=lfs -text
+*.webm  filter=lfs diff=lfs merge=lfs -text
+
+# Git LFS — fonts
+*.ttf   filter=lfs diff=lfs merge=lfs -text
+*.otf   filter=lfs diff=lfs merge=lfs -text
+
+# Git LFS — native libraries and archives
+*.dll   filter=lfs diff=lfs merge=lfs -text
+*.so    filter=lfs diff=lfs merge=lfs -text
+*.dylib filter=lfs diff=lfs merge=lfs -text
+*.exe   filter=lfs diff=lfs merge=lfs -text
+*.zip   filter=lfs diff=lfs merge=lfs -text
+*.7z    filter=lfs diff=lfs merge=lfs -text

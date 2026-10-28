@@ -1,0 +1,16 @@
+{
+    "name": "Arreo.Net",
+    "rootNamespace": "Arreo.Net",
+    "references": [
+        "Arreo.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
