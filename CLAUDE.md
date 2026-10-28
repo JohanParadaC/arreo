@@ -51,6 +51,8 @@ Assets/_Project/Scripts/
 Assets/Tests/EditMode/  Assets/Tests/PlayMode/
 ```
 
+- `Assets/_Project/Prototype/`: escenas y scripts **desechables** de las semanas 2–4 (por ejemplo `Proto_Sabana`, que se regenera desde el menú Arreo → Prototype). No construir sobre ellos.
+- `Assets/_Project/Data/`: ScriptableObjects con datos de diseño (por ejemplo `Horse/HorseSettings_Proto.asset`).
 - Una assembly definition por carpeta. Namespace `Arreo.<Carpeta>`, por ejemplo `Arreo.Herd`.
 - Las dependencias van de los sistemas hacia `Core`, nunca al revés.
 

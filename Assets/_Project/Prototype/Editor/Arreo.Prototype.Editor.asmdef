@@ -1,0 +1,22 @@
+{
+    "name": "Arreo.Prototype.Editor",
+    "rootNamespace": "Arreo.Prototype.Editor",
+    "references": [
+        "Arreo.Horse",
+        "Arreo.Player",
+        "Arreo.Prototype",
+        "Unity.Cinemachine",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

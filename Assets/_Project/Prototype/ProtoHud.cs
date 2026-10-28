@@ -1,0 +1,52 @@
+using Arreo.Horse;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace Arreo.Prototype
+{
+    /// <summary>
+    /// DISPOSABLE (week 2 prototype): debug readout of speed and stamina, plus cursor lock
+    /// for the orbit camera. Replace with the real UI later.
+    /// </summary>
+    public sealed class ProtoHud : MonoBehaviour
+    {
+        [SerializeField] private HorseController _horse;
+
+        private GUIStyle _style;
+
+        private void Start() => LockCursor(true);
+
+        private void Update()
+        {
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+                LockCursor(false);
+            else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+                LockCursor(true);
+        }
+
+        private static void LockCursor(bool locked)
+        {
+            Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !locked;
+        }
+
+        private void OnGUI()
+        {
+            HorseLocomotion locomotion = _horse != null ? _horse.Locomotion : null;
+            if (locomotion == null)
+                return;
+
+            _style ??= new GUIStyle(GUI.skin.label) { fontSize = 18 };
+            HorseStamina stamina = locomotion.Stamina;
+            string gait = locomotion.IsGalloping ? "GALOPE" : stamina.IsExhausted ? "AGOTADO" : "paso";
+
+            GUI.Box(new Rect(10, 10, 280, 110), GUIContent.none);
+            GUI.Label(new Rect(20, 15, 260, 25), $"{locomotion.Speed * 3.6f:0} km/h  ({gait})", _style);
+            GUI.Label(new Rect(20, 42, 260, 25), "Aguante", _style);
+            GUI.color = stamina.IsExhausted ? Color.red : Color.green;
+            GUI.DrawTexture(new Rect(100, 47, 180 * stamina.Normalized, 18), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(20, 72, 270, 45), "WASD/stick: riendas · Shift: galopar\nRatón: cámara · Esc: soltar cursor");
+        }
+    }
+}
