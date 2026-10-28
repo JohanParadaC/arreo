@@ -1,0 +1,51 @@
+using Arreo.Herd;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Arreo.Tests.EditMode
+{
+    public class CorralAreaTests
+    {
+        // 20 m wide (x) by 10 m deep (z), centered at (100, 0, 50).
+        private static CorralArea CreateArea(float yaw = 0f) =>
+            new CorralArea(new Vector3(100f, 0f, 50f), new Vector2(20f, 10f), yaw);
+
+        [Test]
+        public void Contains_PointInside_IsTrue()
+        {
+            Assert.That(CreateArea().Contains(new Vector3(108f, 0f, 53f)), Is.True);
+        }
+
+        [Test]
+        public void Contains_PointOutside_IsFalse()
+        {
+            Assert.That(CreateArea().Contains(new Vector3(100f, 0f, 57f)), Is.False);
+        }
+
+        [Test]
+        public void Contains_IgnoresHeight()
+        {
+            Assert.That(CreateArea().Contains(new Vector3(100f, 3f, 50f)), Is.True);
+        }
+
+        [Test]
+        public void Contains_RotatedArea_UsesItsOwnAxes()
+        {
+            var rotated = CreateArea(yaw: 90f);
+
+            Assert.That(rotated.Contains(new Vector3(100f, 0f, 58f)), Is.True);
+            Assert.That(rotated.Contains(new Vector3(108f, 0f, 50f)), Is.False);
+        }
+
+        [Test]
+        public void Count_CountsOnlyPointsInside()
+        {
+            var points = new[]
+            {
+                new Vector3(100f, 0f, 50f), new Vector3(95f, 0f, 48f), new Vector3(0f, 0f, 0f), new Vector3(130f, 0f, 50f),
+            };
+
+            Assert.That(CreateArea().Count(points), Is.EqualTo(2));
+        }
+    }
+}
