@@ -2,7 +2,9 @@
     "name": "Arreo.Player",
     "rootNamespace": "Arreo.Player",
     "references": [
-        "Arreo.Core"
+        "Arreo.Core",
+        "Arreo.Horse",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
