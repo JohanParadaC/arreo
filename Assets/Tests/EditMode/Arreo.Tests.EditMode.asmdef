@@ -8,7 +8,8 @@
         "Arreo.Horse",
         "Arreo.Herd",
         "Arreo.Rope",
-        "Arreo.Player"
+        "Arreo.Player",
+        "Arreo.Net"
     ],
     "includePlatforms": [
         "Editor"
