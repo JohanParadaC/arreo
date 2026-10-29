@@ -31,12 +31,15 @@ namespace Arreo.Horse
         public float Heading => _heading;
 
         public bool IsGalloping { get; private set; }
+        /// <summary>Moving forward at the slow driving walk (arreo).</summary>
+        public bool IsDriving { get; private set; }
         public HorseStamina Stamina { get; }
 
         public void Tick(HorseIntent intent, float deltaTime)
         {
             bool wantsGallop = intent.Gallop && intent.Throttle > 0f && Stamina.CanGallop;
-            float target = _gait.TargetSpeed(intent.Throttle, wantsGallop);
+            IsDriving = intent.SlowWalk && intent.Throttle > 0f && !wantsGallop;
+            float target = _gait.TargetSpeed(intent.Throttle, wantsGallop, IsDriving);
 
             _speed = _gait.NextSpeed(_speed, target, braking: intent.Throttle < 0f, deltaTime);
             _heading = Mathf.Repeat(_heading + intent.Steer * _gait.TurnRate(_speed) * deltaTime, 360f);

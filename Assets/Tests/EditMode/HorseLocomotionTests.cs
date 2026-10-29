@@ -13,7 +13,7 @@ namespace Arreo.Tests.EditMode
 
         private static HorseLocomotion CreateLocomotion(float heading = 0f, float staminaRecovery = 20f) => new HorseLocomotion(
             new HorseGait(walkSpeed: 4f, gallopSpeed: 12f, backSpeed: 1.5f, acceleration: 4f,
-                coastDeceleration: 2f, braking: 8f, turnRateStanding: 120f, turnRateAtGallop: 40f),
+                coastDeceleration: 2f, braking: 8f, turnRateStanding: 120f, turnRateAtGallop: 40f, driveSpeed: 2f),
             new HorseStamina(max: 100f, drainPerSecond: 10f, recoveryPerSecond: staminaRecovery, recoveryThreshold: 0.35f),
             heading);
 
@@ -164,6 +164,38 @@ namespace Arreo.Tests.EditMode
             locomotion.LimitToMeasuredSpeed(10f);
 
             Assert.That(locomotion.Speed, Is.EqualTo(12f).Within(Tolerance));
+        }
+
+        [Test]
+        public void Tick_SlowWalk_SettlesAtDriveSpeed()
+        {
+            var locomotion = CreateLocomotion();
+
+            Simulate(locomotion, new HorseIntent(1f, 0f, gallop: false, slowWalk: true), 2f);
+
+            Assert.That(locomotion.Speed, Is.EqualTo(2f).Within(Tolerance));
+            Assert.That(locomotion.IsDriving, Is.True);
+        }
+
+        [Test]
+        public void Tick_SlowWalkWhileGalloping_Gallops()
+        {
+            var locomotion = CreateLocomotion();
+
+            Simulate(locomotion, new HorseIntent(1f, 0f, gallop: true, slowWalk: true), 4f);
+
+            Assert.That(locomotion.IsGalloping, Is.True);
+            Assert.That(locomotion.IsDriving, Is.False);
+        }
+
+        [Test]
+        public void Tick_SlowWalkStandingStill_IsNotDriving()
+        {
+            var locomotion = CreateLocomotion();
+
+            Simulate(locomotion, new HorseIntent(0f, 0f, gallop: false, slowWalk: true), 1f);
+
+            Assert.That(locomotion.IsDriving, Is.False);
         }
     }
 }

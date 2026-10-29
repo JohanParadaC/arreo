@@ -10,6 +10,8 @@ namespace Arreo.Horse
         [SerializeField, Min(0.1f)] private float _walkSpeed = 4f;
         [SerializeField, Min(0.1f)] private float _gallopSpeed = 12f;
         [SerializeField, Min(0f)] private float _backSpeed = 1.5f;
+        [Tooltip("Slow driving walk (arreo) while the slow-walk key is held. Keep it close to the herd's flight-zone speed so you push cattle without running into them.")]
+        [SerializeField, Min(0.1f)] private float _driveSpeed = 2f;
 
         [Header("Inertia (m/s per second)")]
         [Tooltip("How fast it gains speed.")]
@@ -34,7 +36,7 @@ namespace Arreo.Horse
 
         public HorseLocomotion CreateLocomotion(float heading) => new HorseLocomotion(
             new HorseGait(_walkSpeed, _gallopSpeed, _backSpeed, _acceleration, _coastDeceleration,
-                _braking, _turnRateStanding, _turnRateAtGallop),
+                _braking, _turnRateStanding, _turnRateAtGallop, _driveSpeed),
             new HorseStamina(_maxStamina, _staminaDrainPerSecond, _staminaRecoveryPerSecond, _recoveryThreshold),
             heading);
     }

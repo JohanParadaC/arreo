@@ -15,17 +15,20 @@ namespace Arreo.Player
         [SerializeField] private InputActionReference _move;
         [Tooltip("Button held to gallop.")]
         [SerializeField] private InputActionReference _gallop;
+        [Tooltip("Button held for the slow driving walk (arreo).")]
+        [SerializeField] private InputActionReference _slowWalk;
 
         private void OnEnable()
         {
             _move.action.Enable();
             _gallop.action.Enable();
+            _slowWalk.action.Enable();
         }
 
         private void Update()
         {
             Vector2 move = _move.action.ReadValue<Vector2>();
-            _horse.SetIntent(new HorseIntent(move.y, move.x, _gallop.action.IsPressed()));
+            _horse.SetIntent(new HorseIntent(move.y, move.x, _gallop.action.IsPressed(), _slowWalk.action.IsPressed()));
         }
     }
 }

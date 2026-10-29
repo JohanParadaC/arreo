@@ -17,14 +17,17 @@ namespace Arreo.Horse
         private readonly float _turnRateAtGallop;
 
         public HorseGait(float walkSpeed, float gallopSpeed, float backSpeed, float acceleration,
-            float coastDeceleration, float braking, float turnRateStanding, float turnRateAtGallop)
+            float coastDeceleration, float braking, float turnRateStanding, float turnRateAtGallop, float driveSpeed)
         {
             if (walkSpeed <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(walkSpeed), walkSpeed, "Must be greater than zero.");
             if (gallopSpeed <= walkSpeed)
                 throw new ArgumentException("Gallop must be faster than walk.", nameof(gallopSpeed));
+            if (driveSpeed <= 0f || driveSpeed > walkSpeed)
+                throw new ArgumentException("Drive speed must be greater than zero and no faster than walk.", nameof(driveSpeed));
 
             WalkSpeed = walkSpeed;
+            DriveSpeed = driveSpeed;
             GallopSpeed = gallopSpeed;
             _backSpeed = backSpeed;
             _acceleration = acceleration;
@@ -36,14 +39,15 @@ namespace Arreo.Horse
 
         public float WalkSpeed { get; }
         public float GallopSpeed { get; }
+        public float DriveSpeed { get; }
 
-        /// <summary>Speed the horse wants to reach. Negative throttle backs up.</summary>
-        public float TargetSpeed(float throttle, bool galloping)
+        /// <summary>Speed the horse wants to reach. Negative throttle backs up; a gallop overrides driving.</summary>
+        public float TargetSpeed(float throttle, bool galloping, bool driving = false)
         {
             if (throttle < 0f)
                 return throttle * _backSpeed;
 
-            return throttle * (galloping ? GallopSpeed : WalkSpeed);
+            return throttle * (galloping ? GallopSpeed : driving ? DriveSpeed : WalkSpeed);
         }
 
         /// <summary>Moves the current speed toward the target, limited by acceleration or deceleration.</summary>

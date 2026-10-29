@@ -16,7 +16,8 @@ namespace Arreo.Tests.EditMode
             coastDeceleration: 2f,
             braking: 8f,
             turnRateStanding: 120f,
-            turnRateAtGallop: 40f);
+            turnRateAtGallop: 40f,
+            driveSpeed: 2f);
 
         [Test]
         public void TargetSpeed_FullThrottleWalking_IsWalkSpeed()
@@ -101,7 +102,25 @@ namespace Arreo.Tests.EditMode
         [Test]
         public void Constructor_GallopNotFasterThanWalk_Throws()
         {
-            Assert.Throws<ArgumentException>(() => new HorseGait(4f, 4f, 1.5f, 4f, 2f, 8f, 120f, 40f));
+            Assert.Throws<ArgumentException>(() => new HorseGait(4f, 4f, 1.5f, 4f, 2f, 8f, 120f, 40f, 2f));
+        }
+
+        [Test]
+        public void TargetSpeed_FullThrottleDriving_IsDriveSpeed()
+        {
+            Assert.That(CreateGait().TargetSpeed(1f, galloping: false, driving: true), Is.EqualTo(2f).Within(Tolerance));
+        }
+
+        [Test]
+        public void TargetSpeed_DrivingAndGalloping_Gallops()
+        {
+            Assert.That(CreateGait().TargetSpeed(1f, galloping: true, driving: true), Is.EqualTo(12f).Within(Tolerance));
+        }
+
+        [Test]
+        public void Constructor_DriveFasterThanWalk_Throws()
+        {
+            Assert.Throws<ArgumentException>(() => new HorseGait(4f, 12f, 1.5f, 4f, 2f, 8f, 120f, 40f, 5f));
         }
     }
 }
