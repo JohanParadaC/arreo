@@ -36,6 +36,7 @@ namespace Arreo.Prototype.Editor
         private const string CameraSettingsPath = CameraSettingsFolder + "/CameraSettings_Proto.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
+        private const string PlayerTag = "Player";
 
         private const float GroundSize = 600f;
         private const float ObstacleRadius = 270f;
@@ -198,7 +199,8 @@ namespace Arreo.Prototype.Editor
 
         private static HorseController CreateHorse(HorseSettings settings, PhysicsMaterial frictionless, out Transform cameraTarget)
         {
-            var root = new GameObject("Horse");
+            // Tagged so the camera's line-of-sight check sees through the horse and its rider.
+            var root = new GameObject("Horse") { tag = PlayerTag };
 
             var body = root.AddComponent<Rigidbody>();
             body.mass = 450f;
@@ -285,6 +287,7 @@ namespace Arreo.Prototype.Editor
             var composer = go.AddComponent<CinemachineRotationComposer>();
             composer.Damping = new Vector2(0.1f, 0.1f);
             AddDecollider(go, settings);
+            AddDeoccluder(go, settings);
 
             var axisController = go.AddComponent<CinemachineInputAxisController>();
             axisController.SynchronizeControllers();
@@ -325,12 +328,14 @@ namespace Arreo.Prototype.Editor
             framing.SizeAdjustment = CinemachineGroupFraming.SizeAdjustmentModes.ZoomOnly;
             framing.Damping = settings.FramingDamping;
             CinemachineDecollider ropeDecollider = AddDecollider(go, settings);
+            CinemachineDeoccluder ropeDeoccluder = AddDeoccluder(go, settings);
 
             var rig = new GameObject("ProtoCameraRig").AddComponent<ProtoCameraRig>();
             SetReference(rig, "_settings", settings);
             SetReference(rig, "_brain", Camera.main.GetComponent<CinemachineBrain>());
             SetReference(rig, "_ropeFraming", framing);
             SetReferences(rig, "_decolliders", riderCamera.GetComponent<CinemachineDecollider>(), ropeDecollider);
+            SetReferences(rig, "_deoccluders", riderCamera.GetComponent<CinemachineDeoccluder>(), ropeDeoccluder);
             SetReference(rig, "_riderCamera", riderCamera);
             SetReference(rig, "_riderOrbit", riderCamera.GetComponent<CinemachineOrbitalFollow>());
             SetReference(rig, "_riderComposer", riderCamera.GetComponent<CinemachineRotationComposer>());
@@ -358,6 +363,31 @@ namespace Arreo.Prototype.Editor
                 SmoothingTime = 0.1f,
             };
             return decollider;
+        }
+
+        private static CinemachineDeoccluder AddDeoccluder(GameObject camera, CameraSettings settings)
+        {
+            // The decollider only keeps the camera out of things; this pulls it in front of a ramp or
+            // palm that hides the rider. Line of sight to the rider (follow target), seeing through
+            // everything tagged as the player: the horse and the ragdoll (RiderMount tags it too).
+            var deoccluder = camera.AddComponent<CinemachineDeoccluder>();
+            deoccluder.CollideAgainst = Physics.DefaultRaycastLayers;
+            deoccluder.IgnoreTag = PlayerTag;
+            deoccluder.TransparentLayers = 0;
+            deoccluder.AvoidObstacles = new CinemachineDeoccluder.ObstacleAvoidance
+            {
+                Enabled = true,
+                DistanceLimit = 0f,
+                MinimumOcclusionTime = settings.OcclusionWait,
+                CameraRadius = settings.CameraRadius,
+                UseFollowTarget = new CinemachineDeoccluder.ObstacleAvoidance.FollowTargetSettings { Enabled = true, YOffset = 0f },
+                Strategy = CinemachineDeoccluder.ObstacleAvoidance.ResolutionStrategy.PullCameraForward,
+                MaximumEffort = 4,
+                SmoothingTime = 0f,
+                Damping = settings.UnoccludedDamping,
+                DampingWhenOccluded = settings.OccludedDamping,
+            };
+            return deoccluder;
         }
 
         private static RiderMount CreateRider(HorseController horse, RopeSimulation rope, out LassoInput lasso)

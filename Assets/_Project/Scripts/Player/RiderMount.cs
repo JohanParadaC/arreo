@@ -72,6 +72,9 @@ namespace Arreo.Player
             Vector3 torso = _horse.transform.TransformPoint(_torsoOffset);
             _ragdoll = RiderRagdoll.Spawn(torso, _horse.transform.rotation, launch + _horseBody.linearVelocity,
                 _settings.TumbleSpin, _clothes, _skin, _horse.GetComponentsInChildren<Collider>());
+            // Same tag as the horse, so whatever sees through this player (the camera) sees through the ragdoll too.
+            foreach (Collider part in _ragdoll.GetComponentsInChildren<Collider>())
+                part.tag = _horse.tag;
             _riderModel.gameObject.SetActive(false);
         }
 

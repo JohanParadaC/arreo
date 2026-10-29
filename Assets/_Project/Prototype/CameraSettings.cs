@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// Camera tuning for the prototype: rider camera, over-the-shoulder aim, rope framing, blends
-    /// and collision. Lives in an asset so rebuilding the scene keeps it. Most values apply live.
+    /// Camera tuning for the prototype: rider camera, over-the-shoulder aim, rope framing, blends,
+    /// collision and line of sight. Lives in an asset so rebuilding the scene keeps it. Most values apply live.
     /// </summary>
     [CreateAssetMenu(menuName = "Arreo/Camera Settings", fileName = "CameraSettings")]
     public sealed class CameraSettings : ScriptableObject
@@ -61,6 +61,14 @@ namespace Arreo.Prototype
         [Tooltip("How gradually the camera returns after being pushed out of something (s).")]
         [SerializeField, Min(0f)] private float _collisionDamping = 0.3f;
 
+        [Header("Line of sight")]
+        [Tooltip("Seconds a ramp, palm or other obstacle must stand between the camera and the rider before the camera moves in front of it. The horse, the rider and their ragdoll never count. A short wait stops it jumping each time a palm flashes past.")]
+        [SerializeField, Min(0f)] private float _occlusionWait = 0.2f;
+        [Tooltip("How gradually the camera moves in front of the obstacle (s). Small, so the rider shows up again quickly.")]
+        [SerializeField, Min(0f)] private float _occludedDamping = 0.1f;
+        [Tooltip("How gradually the camera moves back out once the view is clear (s).")]
+        [SerializeField, Min(0f)] private float _unoccludedDamping = 0.5f;
+
         public float Distance => _distance;
         public float FieldOfView => _fieldOfView;
         public float StartPitch => _startPitch;
@@ -83,5 +91,8 @@ namespace Arreo.Prototype
         public float BlendSeconds => _blendSeconds;
         public float CameraRadius => _cameraRadius;
         public float CollisionDamping => _collisionDamping;
+        public float OcclusionWait => _occlusionWait;
+        public float OccludedDamping => _occludedDamping;
+        public float UnoccludedDamping => _unoccludedDamping;
     }
 }

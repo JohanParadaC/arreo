@@ -24,6 +24,7 @@ namespace Arreo.Prototype
         [SerializeField] private CinemachineOrbitalFollow _ropeOrbit;
         [SerializeField] private CinemachineGroupFraming _ropeFraming;
         [SerializeField] private CinemachineDecollider[] _decolliders;
+        [SerializeField] private CinemachineDeoccluder[] _deoccluders;
         [SerializeField] private CinemachineTargetGroup _group;
         [SerializeField] private Transform _riderTarget;
         [SerializeField] private RopeSimulation _rope;
@@ -111,6 +112,13 @@ namespace Arreo.Prototype
             {
                 decollider.CameraRadius = _settings.CameraRadius;
                 decollider.Decollision.Damping = _settings.CollisionDamping;
+            }
+            foreach (CinemachineDeoccluder deoccluder in _deoccluders)
+            {
+                deoccluder.AvoidObstacles.CameraRadius = _settings.CameraRadius;
+                deoccluder.AvoidObstacles.MinimumOcclusionTime = _settings.OcclusionWait;
+                deoccluder.AvoidObstacles.DampingWhenOccluded = _settings.OccludedDamping;
+                deoccluder.AvoidObstacles.Damping = _settings.UnoccludedDamping;
             }
         }
 

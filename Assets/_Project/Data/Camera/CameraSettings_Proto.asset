@@ -34,3 +34,6 @@ MonoBehaviour:
   _blendSeconds: 0.4
   _cameraRadius: 0.4
   _collisionDamping: 0.3
+  _occlusionWait: 0.2
+  _occludedDamping: 0.1
+  _unoccludedDamping: 0.5

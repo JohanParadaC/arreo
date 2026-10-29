@@ -90,6 +90,32 @@ namespace Arreo.Tests.PlayMode
             Assert.That(aimFieldOfView, Is.LessThan(normalFieldOfView - 10f), "the view did not narrow");
         }
 
+        [UnityTest]
+        public IEnumerator ObstacleBetweenCameraAndRider_MovesTheCameraInUntilItSeesTheRider()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Transform target = GameObject.Find("CameraTarget").transform;
+            Camera camera = Camera.main;
+            Vector3 toCamera = camera.transform.position - target.position;
+            float normalDistance = toCamera.magnitude;
+
+            // A wall halfway between the rider and the camera, square to the view, like a ramp in the way.
+            GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.transform.SetPositionAndRotation(target.position + toCamera * 0.5f, Quaternion.LookRotation(toCamera));
+            wall.transform.localScale = new Vector3(6f, 6f, 0.3f);
+            yield return new WaitForSeconds(1f);
+
+            float blockedDistance = Vector3.Distance(camera.transform.position, target.position);
+            bool blocked = Physics.Linecast(camera.transform.position, target.position, out RaycastHit hit)
+                && !hit.collider.CompareTag("Player");
+            Object.Destroy(wall);
+            Debug.Log($"[ProtoSabanaSceneTests] camera distance with a wall in the way {normalDistance:0.0} -> {blockedDistance:0.0} m");
+
+            // In front of the wall, or lifted over its top by the decollider's terrain check: either way, closer.
+            Assert.That(blockedDistance, Is.LessThan(normalDistance - 1f), "the camera did not move in");
+            Assert.That(blocked, Is.False, $"the camera still can't see the rider (blocked by {(blocked ? hit.collider.name : "")})");
+        }
+
         private void HoldAim(bool held)
         {
             var state = new MouseState();
