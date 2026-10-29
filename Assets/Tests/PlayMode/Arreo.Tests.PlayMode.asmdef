@@ -9,7 +9,11 @@
         "Arreo.Herd",
         "Arreo.Rope",
         "Arreo.Player",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Arreo.Net",
+        "FishNet.Runtime",
+        "Unity.Cinemachine",
+        "Arreo.Prototype"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

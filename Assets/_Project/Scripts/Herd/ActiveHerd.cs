@@ -15,6 +15,8 @@ namespace Arreo.Herd
         [SerializeField] private Rigidbody _rider;
         [SerializeField, Range(1, 100)] private int _count = 20;
         [SerializeField, Min(1f)] private float _spawnRadius = 12f;
+        [Tooltip("Spawn the cows on Start. Off when only the host should have them: then the host calls SpawnHerd.")]
+        [SerializeField] private bool _spawnOnStart = true;
 
         private readonly List<Rigidbody> _cows = new List<Rigidbody>();
         private Vector3[] _positions = new Vector3[0];
@@ -43,8 +45,21 @@ namespace Arreo.Herd
             _count = count;
         }
 
+        /// <summary>The rider the cows are afraid of (a networked player's horse only exists at runtime).</summary>
+        public void SetRider(Rigidbody rider) => _rider = rider;
+
         private void Start()
         {
+            if (_spawnOnStart)
+                SpawnHerd();
+        }
+
+        /// <summary>Spawns the cows once; later calls do nothing.</summary>
+        public void SpawnHerd()
+        {
+            if (_steering != null)
+                return;
+
             _steering = _settings.CreateSteering();
             _stampede = _settings.CreateStampede();
             var random = new System.Random(11);

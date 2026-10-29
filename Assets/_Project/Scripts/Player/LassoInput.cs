@@ -26,6 +26,9 @@ namespace Arreo.Player
         /// <summary>Aim held (and the rider in control); the camera and the crosshair follow it.</summary>
         public bool IsAiming { get; private set; }
 
+        /// <summary>Gives this rider the rope tied to their horse (the rider spawns before it's known).</summary>
+        public void BindRope(RopeSimulation rope) => _rope = rope;
+
         private void OnEnable()
         {
             _aim.action.Enable();
@@ -33,11 +36,13 @@ namespace Arreo.Player
             _release.action.Enable();
         }
 
+        private void OnDisable() => IsAiming = false;
+
         private void Update()
         {
             bool hasControl = _mount == null || _mount.HasControl;
             IsAiming = hasControl && _aim.action.IsPressed();
-            if (!hasControl)
+            if (!hasControl || _rope == null)
                 return;
 
             if (_release.action.WasPressedThisFrame())

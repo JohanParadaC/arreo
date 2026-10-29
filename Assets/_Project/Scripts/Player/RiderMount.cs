@@ -49,13 +49,25 @@ namespace Arreo.Player
             Initialize();
         }
 
+        /// <summary>Hooks the rider up to the rope tied to their horse (the rider spawns before it's known).</summary>
+        public void BindRope(RopeSimulation rope)
+        {
+            if (_rope != null)
+                _rope.Snapped -= OnRopeSnapped;
+            _rope = rope;
+            if (_rope != null && _fall != null)
+            {
+                _rope.Snapped -= OnRopeSnapped;
+                _rope.Snapped += OnRopeSnapped;
+            }
+        }
+
         private void Initialize()
         {
             _fall = _settings.CreateFall();
             _horseBody = _horse.GetComponent<Rigidbody>();
             _modelLocalPosition = _riderModel.localPosition;
-            _rope.Snapped -= OnRopeSnapped;
-            _rope.Snapped += OnRopeSnapped;
+            BindRope(_rope);
         }
 
         private void OnDestroy()

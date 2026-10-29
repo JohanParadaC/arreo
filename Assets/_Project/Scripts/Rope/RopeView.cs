@@ -26,6 +26,14 @@ namespace Arreo.Rope
 
         private void LateUpdate()
         {
+            // Nothing to draw until the rope is tied to a horse (never on clients this week).
+            if (!_rope.IsConfigured)
+            {
+                _line.enabled = false;
+                _loop.enabled = false;
+                return;
+            }
+
             RopeSnapshot snapshot = _rope.Snapshot;
             switch (snapshot.State)
             {

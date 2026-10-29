@@ -2,7 +2,10 @@
     "name": "Arreo.Net",
     "rootNamespace": "Arreo.Net",
     "references": [
-        "Arreo.Core"
+        "Arreo.Core",
+        "Arreo.Horse",
+        "Arreo.Player",
+        "FishNet.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

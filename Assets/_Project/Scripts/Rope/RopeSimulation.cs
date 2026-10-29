@@ -77,6 +77,12 @@ namespace Arreo.Rope
                 Configure(_settings, _saddleBody);
         }
 
+        /// <summary>Tied to a saddle and ready to throw (on clients it stays untied until week 6).</summary>
+        public bool IsConfigured => _machine != null && _saddleBody != null;
+
+        /// <summary>Ties the rope to a horse that only exists at runtime (a networked player's horse).</summary>
+        public void BindSaddle(Rigidbody saddleBody) => Configure(_settings, saddleBody);
+
         /// <summary>Sets up a rope created from code.</summary>
         public void Configure(RopeSettings settings, Rigidbody saddleBody)
         {
