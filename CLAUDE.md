@@ -7,7 +7,8 @@ Documentación completa (visión, decisiones, arquitectura, roadmap): https://cl
 ## Estado actual
 
 - Fantasía: mezcla, caos en el arreo y calma en el hato.
-- Fase: prototipo (semanas 1–4). Ver el roadmap antes de proponer trabajo fuera de la semana en curso.
+- Fase: prototipo (semanas 1–4 hechas; semana 5: red). Ver el roadmap antes de proponer trabajo fuera de la semana en curso.
+- Co-op tipo Stardew Valley (D73): todos comparten el mismo hato, pero cada jugador es independiente.
 - Desarrollador: Johan, solo, ~15 h por semana.
 
 ## Stack
@@ -15,7 +16,7 @@ Documentación completa (visión, decisiones, arquitectura, roadmap): https://cl
 | Pieza | Elección |
 | --- | --- |
 | Motor | Unity 6 LTS, C# |
-| Red | FishNet, anfitrión-cliente |
+| Red | FishNet 4.7.3 (instalado por git desde GitHub, no de la Asset Store; la etiqueta 4.7.4 no compila: su plugin Yak viene a medias), anfitrión-cliente |
 | Transporte local | Tugboat (incluido en FishNet) |
 | Transporte Steam | FishySteamworks + Steamworks.NET; App ID de pruebas 480 hasta pagar Steam Direct |
 | Pruebas | Unity Test Framework (EditMode y PlayMode), Multiplayer Play Mode |
@@ -28,7 +29,7 @@ Pendiente de confirmar: UI de la libreta (propuesta: UI Toolkit).
 
 ## Reglas de arquitectura (no negociables)
 
-1. **El anfitrión tiene la autoridad.** Toda la lógica de juego corre en el servidor. Un cliente nunca decide si enlazó una res, si ganó plata o si una res murió: envía una intención con `ServerRpc` y el servidor valida.
+1. **Cada jugador mueve su caballo; el anfitrión manda en todo lo demás** (D74, 2026-10-29; reemplaza "el anfitrión tiene toda la autoridad"). Cada cliente tiene autoridad sobre el movimiento de su propio caballo: aplica su `HorseIntent` localmente y los demás lo ven interpolado. El anfitrión tiene autoridad sobre manada, soga, economía, reloj y guardado: un cliente nunca decide si enlazó una res, si ganó plata o si una res murió; envía una intención con `ServerRpc` y el servidor valida. Cuando la soga arrastre o tumbe a un jinete, el anfitrión se lo ordena al cliente dueño de ese caballo.
 2. **Manada en dos niveles.** Reses abstractas (datos por potrero) y reses activas (30–50 con física e IA de manada). Nunca instanciar todo el hato como GameObjects.
 3. **La soga física solo existe en el servidor.** A los clientes llegan los dos extremos y la tensión; ellos dibujan la curva con un LineRenderer.
 4. **El canto es una grabación, no voz en vivo.** Cada jugador graba su canto una vez (WAV mono 16 kHz, 5–15 s) y lo guarda en su perfil local. Al entrar a una partida se envía en partes al anfitrión, que lo reparte a los demás, una sola vez por sesión. Al mantener el botón suena en 3D para todos y el servidor aplica el efecto en la manada. Sin grabación, se usa el canto fijo del juego. No hay chat de voz.
@@ -76,6 +77,7 @@ Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResult
 
 - **CI activo:** `.github/workflows/tests.yml` corre las pruebas EditMode con GameCI en cada push (y a mano con `workflow_dispatch`). Los resultados salen como check "EditMode Test Results" en GitHub. Secrets: `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`.
 - No marcar una tarea como terminada si alguna prueba falla, en local o en el CI.
+- **Red:** `ProtoSabanaSceneTests` (PlayMode) crea una partida real con FishNet en la escena. Dos jugadores a mano: Multiplayer Play Mode (Window > Multiplayer > Multiplayer Play Mode, activar Player 2). Medir fluidez con latencia: menú Arreo > Prototype > Build Network Test Player (development build: el simulador de latencia de FishNet no existe en builds normales) y correr dos copias con `-arreoNet host|client -arreoMeasure <s> -arreoLatency <ms por trayecto> -arreoLoss <0-1>`.
 
 ## Cómo trabajar en este repo
 
