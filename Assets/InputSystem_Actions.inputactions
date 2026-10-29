@@ -103,6 +103,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "Aim",
+                    "type": "Button",
+                    "id": "8a3f5c1e-6b2d-4e7a-9c40-2f1d8b6e5a73",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -395,7 +404,7 @@
                 {
                     "name": "",
                     "id": "e41a6f0d-3b7c-4c58-9e2a-7f6b0d8c1e25",
-                    "path": "<Keyboard>/leftCtrl",
+                    "path": "<Keyboard>/c",
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
@@ -417,7 +426,7 @@
                 {
                     "name": "",
                     "id": "4e9b1c7a-2d5f-4a83-b6e0-8c3f1a9d2e57",
-                    "path": "<Mouse>/rightButton",
+                    "path": "<Keyboard>/q",
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
@@ -433,6 +442,28 @@
                     "processors": "",
                     "groups": "Gamepad",
                     "action": "ReleaseRope",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "d5e1a9b3-4c7f-4f28-8b6a-0e3c7d2f9b14",
+                    "path": "<Mouse>/rightButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "Aim",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "f3c8b2e7-9a1d-4d65-a7e2-6b4f0c8d3a59",
+                    "path": "<Gamepad>/leftTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "Aim",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

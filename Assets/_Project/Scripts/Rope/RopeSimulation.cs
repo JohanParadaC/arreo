@@ -64,6 +64,9 @@ namespace Arreo.Rope
         /// <summary>Velocity the rope drags the horse with this step (zero unless the target out-pulls it).</summary>
         public Vector3 DragVelocity { get; private set; }
 
+        /// <summary>Raised when the rope snaps: the tension it snapped at (N) and the direction it was pulling the rider.</summary>
+        public event System.Action<float, Vector3> Snapped;
+
         public Vector3 SaddlePoint => _saddleBody.transform.TransformPoint(_settings.SaddleAnchor);
 
         public RopeSnapshot Snapshot => new RopeSnapshot(SaddlePoint, _end, _smoothedTension / _settings.BreakTension, State);
@@ -202,6 +205,7 @@ namespace Arreo.Rope
             if (State == RopeState.Broken)
             {
                 LetGo();
+                Snapped?.Invoke(_machine.SnapTension, direction);
                 return;
             }
 

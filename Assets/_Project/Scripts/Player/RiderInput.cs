@@ -11,12 +11,18 @@ namespace Arreo.Player
     public sealed class RiderInput : MonoBehaviour
     {
         [SerializeField] private HorseController _horse;
+        [Tooltip("While the rider is down they have no control.")]
+        [SerializeField] private RiderMount _mount;
         [Tooltip("Vector2: y = forward/back, x = steer.")]
         [SerializeField] private InputActionReference _move;
         [Tooltip("Button held to gallop.")]
         [SerializeField] private InputActionReference _gallop;
-        [Tooltip("Button held for the slow driving walk (arreo).")]
+        [Tooltip("Button that toggles the slow driving walk (arreo) on and off.")]
         [SerializeField] private InputActionReference _slowWalk;
+
+        private bool _slowWalkOn;
+
+        public bool SlowWalkOn => _slowWalkOn;
 
         private void OnEnable()
         {
@@ -27,8 +33,14 @@ namespace Arreo.Player
 
         private void Update()
         {
+            if (_mount != null && !_mount.HasControl)
+                return;
+
+            if (_slowWalk.action.WasPressedThisFrame())
+                _slowWalkOn = !_slowWalkOn;
+
             Vector2 move = _move.action.ReadValue<Vector2>();
-            _horse.SetIntent(new HorseIntent(move.y, move.x, _gallop.action.IsPressed(), _slowWalk.action.IsPressed()));
+            _horse.SetIntent(new HorseIntent(move.y, move.x, _gallop.action.IsPressed(), _slowWalkOn));
         }
     }
 }

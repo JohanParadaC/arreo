@@ -7,7 +7,8 @@
         "Arreo.Core",
         "Arreo.Horse",
         "Arreo.Herd",
-        "Arreo.Rope"
+        "Arreo.Rope",
+        "Arreo.Player"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

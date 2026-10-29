@@ -11,7 +11,8 @@ namespace Arreo.Rope
         private Rigidbody _body;
 
         public Rigidbody Body => _body != null ? _body : _body = GetComponent<Rigidbody>();
-        public Vector3 HeadPosition => _head != null ? _head.position : transform.position;
+        public Transform Head => _head != null ? _head : transform;
+        public Vector3 HeadPosition => Head.position;
 
         public void SetHead(Transform head) => _head = head;
     }

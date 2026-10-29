@@ -156,6 +156,55 @@ namespace Arreo.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator HardSnap_ThrowsTheRiderOff_HorseStops_RiderRemounts()
+        {
+            var model = new GameObject("Rider").transform;
+            model.SetParent(_horse.transform, false);
+            var riderSettings = ScriptableObject.CreateInstance<Arreo.Player.RiderSettings>();
+            var mount = _horse.gameObject.AddComponent<Arreo.Player.RiderMount>();
+            mount.Configure(riderSettings, _horse, _rope, model, null, null);
+
+            _rope.Attach(_target);
+            _horse.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            _horse.Configure(_horseSettings);
+            Vector3 horseVelocity = Vector3.zero;
+            for (float t = 0f; t < 6f && _rope.State != RopeState.Broken; t += Time.fixedDeltaTime)
+            {
+                horseVelocity = _horseBody.linearVelocity;
+                yield return new WaitForFixedUpdate();
+                _horse.SetIntent(new HorseIntent(1f, 0f, gallop: true));
+                FleeLikeTheHerd(Vector3.zero);
+            }
+
+            Assert.That(_rope.State, Is.EqualTo(RopeState.Broken));
+            Assert.That(mount.State, Is.EqualTo(Arreo.Player.RiderState.Fallen));
+            Assert.That(mount.HasControl, Is.False);
+            var ragdoll = Object.FindFirstObjectByType<Arreo.Player.RiderRagdoll>();
+            Assert.That(ragdoll, Is.Not.Null, "no ragdoll");
+            Assert.That(model.gameObject.activeSelf, Is.False);
+
+            // Thrown toward the cow (+z here) relative to the horse, and upward. The rider keeps the
+            // horse's own speed too, so in the world both keep moving the way the horse galloped.
+            Vector3 relative = ragdoll.Torso.linearVelocity - horseVelocity;
+            Debug.Log($"[RopeMassTests] fall: launch relative to horse {relative}");
+            Assert.That(relative.z, Is.GreaterThan(4f), "not thrown along the pull");
+            Assert.That(relative.y, Is.GreaterThan(3f), "not thrown upward");
+
+            yield return new WaitForSeconds(1.6f);
+            Vector3 torso = ragdoll.Torso.position;
+            Debug.Log($"[RopeMassTests] fall: horse speed {_horse.Locomotion.Speed:0.00} m/s after 1.6 s");
+            Assert.That(float.IsNaN(torso.x), Is.False);
+            Assert.That(_horse.Locomotion.Speed, Is.LessThan(0.5f), "the horse did not stop");
+
+            yield return new WaitForSeconds(1.6f);
+            Assert.That(mount.State, Is.EqualTo(Arreo.Player.RiderState.Mounted));
+            Assert.That(mount.HasControl, Is.True);
+            Assert.That(model.gameObject.activeSelf, Is.True);
+            Assert.That(Object.FindFirstObjectByType<Arreo.Player.RiderRagdoll>(), Is.Null);
+            Object.Destroy(riderSettings);
+        }
+
+        [UnityTest]
         public IEnumerator ThrowAtAHead_CatchesIt()
         {
             Assert.That(_rope.Throw(_target.HeadPosition), Is.True);
