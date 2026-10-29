@@ -21,9 +21,9 @@ MonoBehaviour:
   _recenterWait: 1
   _recenterTime: 0.5
   _aimBlendSeconds: 0.2
-  _aimDistance: 2.2
-  _shoulderOffset: {x: 1.3, y: 0.35, z: 0}
-  _aimFieldOfView: 47
+  _aimDistance: 3.5
+  _shoulderOffset: {x: 1.6, y: 0.35, z: 0}
+  _aimFieldOfView: 52
   _ropeDistance: 9
   _ropePitch: 20
   _ropeFieldOfView: 60
