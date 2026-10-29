@@ -43,11 +43,21 @@ namespace Arreo.Prototype
 
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = -1;
-            _riderInput.enabled = false;
+        }
+
+        /// <summary>The horse the scripted rider drives (the local player's, once the game hosts itself).</summary>
+        public void Bind(HorseController horse, Behaviour riderInput)
+        {
+            _horse = horse;
+            _riderInput = riderInput;
+            if (enabled)
+                _riderInput.enabled = false;
         }
 
         private void Update()
         {
+            if (_horse == null)
+                return;
             _horse.SetIntent(new HorseIntent(throttle: 1f, steer: 0.35f, gallop: true));
 
             _elapsed += Time.unscaledDeltaTime;

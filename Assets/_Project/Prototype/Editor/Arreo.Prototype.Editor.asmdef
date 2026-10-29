@@ -6,6 +6,8 @@
         "Arreo.Horse",
         "Arreo.Rope",
         "Arreo.Player",
+        "Arreo.Net",
+        "FishNet.Runtime",
         "Arreo.Prototype",
         "Unity.Cinemachine",
         "Unity.InputSystem"

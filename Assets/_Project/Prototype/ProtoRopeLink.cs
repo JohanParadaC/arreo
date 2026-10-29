@@ -13,6 +13,13 @@ namespace Arreo.Prototype
         [SerializeField] private RopeSimulation _rope;
         [SerializeField] private HorseController _horse;
 
-        private void FixedUpdate() => _horse.SetExternalVelocity(_rope.DragVelocity);
+        /// <summary>The horse the rope is tied to (the host's own rider this week).</summary>
+        public void Bind(HorseController horse) => _horse = horse;
+
+        private void FixedUpdate()
+        {
+            if (_horse != null)
+                _horse.SetExternalVelocity(_rope.DragVelocity);
+        }
     }
 }

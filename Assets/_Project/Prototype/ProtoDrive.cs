@@ -16,8 +16,14 @@ namespace Arreo.Prototype
 
         public HerdDrive Drive { get; private set; }
 
+        /// <summary>The horse whose first move starts the clock (the host's own rider).</summary>
+        public void Bind(HorseController horse) => _horse = horse;
+
         private void Update()
         {
+            if (_horse == null)
+                return;
+
             if (Drive == null)
             {
                 if (_herd.Count == 0)

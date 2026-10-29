@@ -1,7 +1,11 @@
 #if UNITY_EDITOR
 using System.Collections;
 using System.Collections.Generic;
+using Arreo.Herd;
+using Arreo.Net;
+using FishNet.Managing;
 using NUnit.Framework;
+using Unity.Cinemachine;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -21,6 +25,7 @@ namespace Arreo.Tests.PlayMode
 
         private readonly List<string> _errors = new List<string>();
         private Mouse _mouse;
+        private NetworkManager _network;
         private InputSettings.BackgroundBehavior _backgroundBehavior;
         private InputSettings.EditorInputBehaviorInPlayMode _editorInputBehavior;
 
@@ -37,12 +42,25 @@ namespace Arreo.Tests.PlayMode
 
             yield return EditorSceneManager.LoadSceneAsyncInPlayMode(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
             _mouse = InputSystem.AddDevice<Mouse>();
+
+            // Host a game ("Crear partida") and wait for this machine's own rider.
+            _network = Object.FindFirstObjectByType<NetworkManager>();
+            Object.FindFirstObjectByType<Arreo.Prototype.ProtoNetworkMenu>().Host();
+            for (float t = 0f; t < 10f && NetworkRider.Local == null; t += Time.unscaledDeltaTime)
+                yield return null;
+            Assert.That(NetworkRider.Local, Is.Not.Null, "hosting did not spawn the local rider");
             yield return new WaitForSeconds(1f);
         }
 
         [UnityTearDown]
         public IEnumerator TearDown()
         {
+            if (_network != null)
+            {
+                _network.ClientManager.StopConnection();
+                _network.ServerManager.StopConnection(true);
+                yield return null;
+            }
             Application.logMessageReceived -= CollectErrors;
             LogAssert.ignoreFailingMessages = false;
             if (_mouse != null)
@@ -73,7 +91,7 @@ namespace Arreo.Tests.PlayMode
         public IEnumerator Aiming_MovesTheRealCameraCloserAndNarrowsTheView()
         {
             LogAssert.ignoreFailingMessages = true;
-            Transform rider = GameObject.Find("Horse").transform;
+            Transform rider = NetworkRider.Local.transform;
             Camera camera = Camera.main;
             float normalDistance = Vector3.Distance(camera.transform.position, rider.position);
             float normalFieldOfView = camera.fieldOfView;
@@ -94,7 +112,7 @@ namespace Arreo.Tests.PlayMode
         public IEnumerator ObstacleBetweenCameraAndRider_PullsTheCameraInFrontOfIt()
         {
             LogAssert.ignoreFailingMessages = true;
-            Transform target = GameObject.Find("CameraTarget").transform;
+            Transform target = NetworkRider.Local.CameraTarget;
             Camera camera = Camera.main;
             Vector3 toCamera = camera.transform.position - target.position;
             float normalDistance = toCamera.magnitude;
@@ -117,6 +135,24 @@ namespace Arreo.Tests.PlayMode
             // Only the Ground layer counts as terrain, so the wall must not lift the camera over its top.
             Assert.That(cameraHeight, Is.LessThan(wallTop), "the camera climbed over the wall");
             Assert.That(blocked, Is.False, $"the camera still can't see the rider (blocked by {(blocked ? hit.collider.name : "")})");
+        }
+
+        [UnityTest]
+        public IEnumerator Hosting_SpawnsOneOwnedRider_TheCameraFollowsIt_AndTheHostRunsTheHerd()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            NetworkRider rider = NetworkRider.Local;
+            yield return null;
+
+            Assert.That(Object.FindObjectsByType<NetworkRider>(FindObjectsSortMode.None).Length, Is.EqualTo(1));
+            Assert.That(rider.IsOwner, Is.True);
+            Assert.That(rider.Role.ReadsInput && rider.Role.RunsHostSystems, Is.True);
+            Assert.That(rider.Input.enabled && rider.Horse.enabled, Is.True, "the owner must read input and move its horse");
+            Assert.That(rider.CompareTag("Player"), Is.True, "only the local rider is tagged for the camera to see through");
+            Assert.That(GameObject.Find("CM Rider Camera").GetComponent<CinemachineCamera>().Target.TrackingTarget,
+                Is.EqualTo(rider.CameraTarget), "the camera does not follow the local rider");
+            Assert.That(Object.FindFirstObjectByType<ActiveHerd>().Count, Is.GreaterThan(0), "the host did not spawn the herd");
+            Assert.That(_errors, Is.Empty, "Console errors while hosting:\n" + string.Join("\n", _errors));
         }
 
         private void HoldAim(bool held)

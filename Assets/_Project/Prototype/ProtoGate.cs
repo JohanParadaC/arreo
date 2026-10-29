@@ -21,7 +21,10 @@ namespace Arreo.Prototype
         private float _currentYaw;
 
         public bool IsOpen { get; private set; } = true;
-        public bool RiderInReach => Vector3.Distance(_rider.position, _hinge.position) <= _reach;
+        public bool RiderInReach => _rider != null && Vector3.Distance(_rider.position, _hinge.position) <= _reach;
+
+        /// <summary>The rider who can work the gate (the host's own rider until the gate is networked).</summary>
+        public void Bind(Transform rider) => _rider = rider;
 
         private void Awake()
         {

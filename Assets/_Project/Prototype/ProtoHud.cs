@@ -25,10 +25,21 @@ namespace Arreo.Prototype
         private GUIStyle _style;
         private GUIStyle _banner;
 
-        private void Start() => LockCursor(true);
+        /// <summary>Points the HUD at this machine's rider once it spawns, and captures the cursor.</summary>
+        public void Bind(HorseController horse, LassoInput lasso, RiderMount mount, RiderInput riderInput)
+        {
+            _horse = horse;
+            _lasso = lasso;
+            _mount = mount;
+            _riderInput = riderInput;
+            LockCursor(true);
+        }
 
         private void Update()
         {
+            // Before joining, the cursor stays free for the network menu.
+            if (_horse == null)
+                return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
                 LockCursor(false);
             else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
@@ -68,7 +79,7 @@ namespace Arreo.Prototype
 
         private void DrawRope()
         {
-            if (_rope == null)
+            if (_rope == null || !_rope.IsConfigured)
                 return;
 
             string state = _rope.State switch

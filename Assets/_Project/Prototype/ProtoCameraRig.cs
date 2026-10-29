@@ -49,10 +49,7 @@ namespace Arreo.Prototype
             if (_ropeOrbit == null) missing.Add(nameof(_ropeOrbit));
             if (_ropeFraming == null) missing.Add(nameof(_ropeFraming));
             if (_group == null) missing.Add(nameof(_group));
-            if (_riderTarget == null) missing.Add(nameof(_riderTarget));
             if (_rope == null) missing.Add(nameof(_rope));
-            if (_lasso == null) missing.Add(nameof(_lasso));
-            if (_mount == null) missing.Add(nameof(_mount));
             if (missing.Count == 0)
                 return;
 
@@ -60,8 +57,25 @@ namespace Arreo.Prototype
             enabled = false;
         }
 
+        /// <summary>
+        /// Follows this machine's own rider once it spawns: both cameras track it and the rope
+        /// framing group starts from it. Other players' riders are never followed.
+        /// </summary>
+        public void Bind(Transform riderTarget, LassoInput lasso, RiderMount mount)
+        {
+            _riderTarget = riderTarget;
+            _lasso = lasso;
+            _mount = mount;
+            _riderCamera.Target.TrackingTarget = riderTarget;
+            _ropeCamera.Target.TrackingTarget = riderTarget;
+            _group.AddMember(riderTarget, 1f, 1.5f);
+        }
+
         private void LateUpdate()
         {
+            if (_riderTarget == null)
+                return;
+
             // Recreate the blend if its time was tuned while playing.
             if (!Mathf.Approximately(_aimBlendSeconds, _settings.AimBlendSeconds))
             {
