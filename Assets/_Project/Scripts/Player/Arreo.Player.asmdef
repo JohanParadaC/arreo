@@ -4,6 +4,7 @@
     "references": [
         "Arreo.Core",
         "Arreo.Horse",
+        "Arreo.Rope",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

@@ -94,6 +94,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "ReleaseRope",
+                    "type": "Button",
+                    "id": "c7d2a4e8-1f3b-4b6d-9e0a-5a8c2f7b3d91",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -402,6 +411,28 @@
                     "processors": "",
                     "groups": "Gamepad",
                     "action": "SlowWalk",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "4e9b1c7a-2d5f-4a83-b6e0-8c3f1a9d2e57",
+                    "path": "<Mouse>/rightButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "ReleaseRope",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b2f8e6d4-7a1c-4e95-a3b7-1d6c9e4f8a20",
+                    "path": "<Gamepad>/rightShoulder",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "ReleaseRope",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

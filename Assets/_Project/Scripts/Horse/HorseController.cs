@@ -14,6 +14,7 @@ namespace Arreo.Horse
         private Rigidbody _rigidbody;
         private HorseLocomotion _locomotion;
         private HorseIntent _intent;
+        private Vector3 _externalVelocity;
 
         public HorseLocomotion Locomotion => _locomotion;
 
@@ -32,6 +33,9 @@ namespace Arreo.Horse
 
         public void SetIntent(HorseIntent intent) => _intent = intent;
 
+        /// <summary>Velocity forced on the horse from outside (a rope dragging it), on top of its own.</summary>
+        public void SetExternalVelocity(Vector3 velocity) => _externalVelocity = new Vector3(velocity.x, 0f, velocity.z);
+
         private void FixedUpdate()
         {
             if (_locomotion == null)
@@ -39,12 +43,13 @@ namespace Arreo.Horse
 
             Vector3 velocity = _rigidbody.linearVelocity;
             Vector3 forward = _rigidbody.rotation * Vector3.forward;
-            _locomotion.LimitToMeasuredSpeed(Vector3.Dot(new Vector3(velocity.x, 0f, velocity.z), forward));
+            Vector3 ownVelocity = new Vector3(velocity.x, 0f, velocity.z) - _externalVelocity;
+            _locomotion.LimitToMeasuredSpeed(Vector3.Dot(ownVelocity, forward));
 
             _locomotion.Tick(_intent, Time.fixedDeltaTime);
 
             Quaternion rotation = Quaternion.Euler(0f, _locomotion.Heading, 0f);
-            Vector3 horizontal = rotation * Vector3.forward * _locomotion.Speed;
+            Vector3 horizontal = rotation * Vector3.forward * _locomotion.Speed + _externalVelocity;
             _rigidbody.MoveRotation(rotation);
             _rigidbody.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
         }
