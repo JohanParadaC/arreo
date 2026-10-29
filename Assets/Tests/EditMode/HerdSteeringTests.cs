@@ -19,7 +19,8 @@ namespace Arreo.Tests.EditMode
             fleeSpeed: 6f,
             panicSpeed: 8f,
             new RiderFear(fearRadius: 15f, gallopRadiusMultiplier: 2f, stillIntensity: 0.5f,
-                gallopReferenceSpeed: 12f, panicStartSpeed: 6f));
+                gallopReferenceSpeed: 12f, panicStartSpeed: 6f, flightZoneRadius: 8f),
+            flightZoneSpeed: 2.2f);
 
         [Test]
         public void LoneCow_NoRiderAround_StaysStill()
@@ -103,6 +104,39 @@ namespace Arreo.Tests.EditMode
             Vector3 velocity = CreateSteering().DesiredVelocity(0, positions, velocities, new Vector3(0f, 3f, -4f), WalkingRider);
 
             Assert.That(velocity.y, Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void StillRiderInsideFlightZone_CowWalksAwayAtFlightZoneSpeed()
+        {
+            // At 6 m fear alone would give 1.8 m/s; the flight zone lifts it to 2.2.
+            Vector3 velocity = CreateSteering().DesiredVelocity(0, new[] { Vector3.zero }, new[] { Vector3.zero },
+                new Vector3(0f, 0f, -6f), riderSpeed: 0f);
+
+            Assert.That(velocity.magnitude, Is.EqualTo(2.2f).Within(0.001f));
+            Assert.That(velocity.z, Is.GreaterThan(0f));
+        }
+
+        [Test]
+        public void StillRiderOutsideFlightZone_OnlyFearMovesTheCow()
+        {
+            // At 10 m: fear (1 - 10/15) * 0.5 = 1/6, times flee speed 6 = 1 m/s.
+            Vector3 velocity = CreateSteering().DesiredVelocity(0, new[] { Vector3.zero }, new[] { Vector3.zero },
+                new Vector3(0f, 0f, -10f), riderSpeed: 0f);
+
+            Assert.That(velocity.magnitude, Is.EqualTo(1f).Within(0.001f));
+        }
+
+        [Test]
+        public void SlowRiderInsideFlightZone_DoesNotBreakCohesion()
+        {
+            // Herd mate along +x, rider along -z: the x part is pure cohesion, 10 m * 0.15 = 1.5 m/s.
+            var positions = new[] { Vector3.zero, new Vector3(10f, 0f, 0f) };
+            var velocities = new[] { Vector3.zero, Vector3.zero };
+
+            Vector3 velocity = CreateSteering().DesiredVelocity(0, positions, velocities, new Vector3(0f, 0f, -6f), riderSpeed: 2f);
+
+            Assert.That(velocity.x, Is.EqualTo(1.5f).Within(0.001f));
         }
     }
 }

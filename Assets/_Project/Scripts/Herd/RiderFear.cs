@@ -14,15 +14,17 @@ namespace Arreo.Herd
         private readonly float _stillIntensity;
         private readonly float _gallopReferenceSpeed;
         private readonly float _panicStartSpeed;
+        private readonly float _flightZoneRadius;
 
         public RiderFear(float fearRadius, float gallopRadiusMultiplier, float stillIntensity,
-            float gallopReferenceSpeed, float panicStartSpeed)
+            float gallopReferenceSpeed, float panicStartSpeed, float flightZoneRadius)
         {
             _fearRadius = fearRadius;
             _gallopRadiusMultiplier = gallopRadiusMultiplier;
             _stillIntensity = stillIntensity;
             _gallopReferenceSpeed = gallopReferenceSpeed;
             _panicStartSpeed = panicStartSpeed;
+            _flightZoneRadius = flightZoneRadius;
         }
 
         public float Fear(float distance, float riderSpeed)
@@ -39,6 +41,9 @@ namespace Arreo.Herd
             float gallop01 = Mathf.Clamp01((riderSpeed - _panicStartSpeed) / (_gallopReferenceSpeed - _panicStartSpeed));
             return fear * gallop01;
         }
+
+        /// <summary>Rider is inside the cow's personal space: it walks away even from a still rider.</summary>
+        public bool InFlightZone(float distance) => distance < _flightZoneRadius;
 
         public static Vector3 FleeDirection(Vector3 cow, Vector3 rider)
         {

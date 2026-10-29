@@ -29,6 +29,12 @@ namespace Arreo.Herd
         [Tooltip("Rider speed where fear starts turning into panic and the herd scatters (m/s).")]
         [SerializeField, Min(0f)] private float _panicStartSpeed = 6f;
 
+        [Header("Flight zone")]
+        [Tooltip("Personal space of a cow (m). As soon as the rider is this close, even still or at a slow walk, the cow walks away at least at Flight Zone Speed. It never causes panic: that stays reserved for the gallop.")]
+        [SerializeField, Min(0f)] private float _flightZoneRadius = 8f;
+        [Tooltip("Walking speed of a cow leaving its flight zone (m/s). Keep it a bit above the horse's drive speed so the herd stays ahead of a slow-walking rider.")]
+        [SerializeField, Min(0f)] private float _flightZoneSpeed = 2.2f;
+
         [Header("Cow movement")]
         [Tooltip("Top speed of a scared cow (m/s).")]
         [SerializeField, Min(0.1f)] private float _fleeSpeed = 6f;
@@ -47,6 +53,7 @@ namespace Arreo.Herd
         public HerdSteering CreateSteering() => new HerdSteering(
             _separationRadius, _neighborRadius, _separationStrength, _alignmentWeight, _cohesionStrength,
             _fleeSpeed, _panicSpeed,
-            new RiderFear(_fearRadius, _gallopRadiusMultiplier, _stillIntensity, _gallopReferenceSpeed, _panicStartSpeed));
+            new RiderFear(_fearRadius, _gallopRadiusMultiplier, _stillIntensity, _gallopReferenceSpeed, _panicStartSpeed, _flightZoneRadius),
+            _flightZoneSpeed);
     }
 }

@@ -13,7 +13,8 @@ namespace Arreo.Tests.EditMode
             gallopRadiusMultiplier: 2f,
             stillIntensity: 0.5f,
             gallopReferenceSpeed: 12f,
-            panicStartSpeed: 6f);
+            panicStartSpeed: 6f,
+            flightZoneRadius: 8f);
 
         [Test]
         public void Fear_StillRiderOutsideRadius_IsZero()
@@ -87,6 +88,18 @@ namespace Arreo.Tests.EditMode
         public void FleeDirection_SamePosition_IsZero()
         {
             Assert.That(RiderFear.FleeDirection(Vector3.one, Vector3.one), Is.EqualTo(Vector3.zero));
+        }
+
+        [Test]
+        public void InFlightZone_RiderInsideRadius_IsTrue()
+        {
+            Assert.That(CreateFear().InFlightZone(distance: 7.9f), Is.True);
+        }
+
+        [Test]
+        public void InFlightZone_RiderOutsideRadius_IsFalse()
+        {
+            Assert.That(CreateFear().InFlightZone(distance: 8.1f), Is.False);
         }
     }
 }
