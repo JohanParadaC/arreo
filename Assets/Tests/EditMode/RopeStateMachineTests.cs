@@ -150,5 +150,30 @@ namespace Arreo.Tests.EditMode
 
             Assert.That(rope.State, Is.EqualTo(RopeState.Coiled));
         }
+
+        [Test]
+        public void Snapping_RemembersThePeakTensionOfTheStrainThatBrokeIt()
+        {
+            var rope = CreateLassoedRope();
+            rope.Tick(0.5f, Break + 100f);
+            rope.Tick(0.5f, Break + 2000f);
+
+            rope.Tick(1.1f, Break + 500f);
+
+            Assert.That(rope.State, Is.EqualTo(RopeState.Broken));
+            Assert.That(rope.SnapTension, Is.EqualTo(Break + 2000f));
+        }
+
+        [Test]
+        public void SnapTension_IgnoresEarlierStrainsThatDidNotBreakIt()
+        {
+            var rope = CreateLassoedRope();
+            rope.Tick(1f, Break + 5000f);
+            rope.Tick(0.1f, Break - 100f);
+
+            rope.Tick(2.1f, Break + 200f);
+
+            Assert.That(rope.SnapTension, Is.EqualTo(Break + 200f));
+        }
     }
 }

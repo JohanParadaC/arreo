@@ -30,6 +30,7 @@ namespace Arreo.Rope
         private readonly float _retractSeconds;
         private readonly float _brokenSeconds;
         private float _breakTimer;
+        private float _strainPeak;
         private float _stateTime;
 
         public RopeStateMachine(float tautTension, float breakTension, float breakSeconds, float retractSeconds, float brokenSeconds)
@@ -47,6 +48,9 @@ namespace Arreo.Rope
         public float BreakProgress => Mathf.Clamp01(_breakTimer / _breakSeconds);
 
         public bool IsHoldingCow => State == RopeState.Lassoed || State == RopeState.Taut;
+
+        /// <summary>Highest tension (N) during the strain that last snapped the rope.</summary>
+        public float SnapTension { get; private set; }
 
         public bool Throw()
         {
@@ -76,9 +80,14 @@ namespace Arreo.Rope
                 case RopeState.Lassoed:
                 case RopeState.Taut:
                     State = tension >= _tautTension ? RopeState.Taut : RopeState.Lassoed;
-                    _breakTimer = tension >= _breakTension ? _breakTimer + deltaTime : 0f;
+                    bool straining = tension >= _breakTension;
+                    _breakTimer = straining ? _breakTimer + deltaTime : 0f;
+                    _strainPeak = straining ? Mathf.Max(_strainPeak, tension) : 0f;
                     if (_breakTimer >= _breakSeconds)
+                    {
+                        SnapTension = _strainPeak;
                         Enter(RopeState.Broken);
+                    }
                     break;
                 case RopeState.Released when _stateTime >= _retractSeconds:
                 case RopeState.Broken when _stateTime >= _brokenSeconds:
@@ -92,6 +101,7 @@ namespace Arreo.Rope
             State = state;
             _stateTime = 0f;
             _breakTimer = 0f;
+            _strainPeak = 0f;
         }
     }
 }
