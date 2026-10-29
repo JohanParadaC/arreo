@@ -2,14 +2,10 @@ using UnityEngine;
 
 namespace Arreo.Player
 {
-    /// <summary>Tuning values for the rider: aiming the lasso and being thrown off the horse.</summary>
+    /// <summary>Tuning values for the rider being thrown off the horse.</summary>
     [CreateAssetMenu(menuName = "Arreo/Rider Settings", fileName = "RiderSettings")]
     public sealed class RiderSettings : ScriptableObject
     {
-        [Header("Aim")]
-        [Tooltip("Seconds the camera takes to zoom over the shoulder while aiming (and back).")]
-        [SerializeField, Min(0f)] private float _aimBlendSeconds = 0.2f;
-
         [Header("Fall")]
         [Tooltip("Only a rope snapping at or above this tension (N) throws the rider off. A stampeding cow pulls about 3600 N; galloping away from a caught cow peaks around 5000 N.")]
         [SerializeField, Min(0f)] private float _fallTension = 4000f;
@@ -28,8 +24,6 @@ namespace Arreo.Player
         [SerializeField, Min(0.05f)] private float _remountSeconds = 0.8f;
 
         public float TumbleSpin => _tumbleSpin;
-
-        public AimBlend CreateAim() => new AimBlend(_aimBlendSeconds);
 
         public RiderFall CreateFall() => new RiderFall(_fallTension, _launchSpeed, _launchSpeedPerNewton, _maxLaunchSpeed,
             _launchAngle, _getUpSeconds, _remountSeconds);

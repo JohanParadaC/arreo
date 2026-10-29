@@ -15,7 +15,6 @@ namespace Arreo.Player
         private static readonly RaycastHit[] Hits = new RaycastHit[16];
 
         [SerializeField] private RopeSimulation _rope;
-        [SerializeField] private RiderSettings _settings;
         [Tooltip("While the rider is down they can't aim, throw or let go.")]
         [SerializeField] private RiderMount _mount;
         [Tooltip("The rider's horse, ignored by the aim ray.")]
@@ -24,12 +23,8 @@ namespace Arreo.Player
         [SerializeField] private InputActionReference _throw;
         [SerializeField] private InputActionReference _release;
 
-        private AimBlend _aimBlend;
-
-        /// <summary>Aiming state for the camera and the crosshair.</summary>
-        public AimBlend Aim => _aimBlend;
-
-        private void Awake() => _aimBlend = _settings.CreateAim();
+        /// <summary>Aim held (and the rider in control); the camera and the crosshair follow it.</summary>
+        public bool IsAiming { get; private set; }
 
         private void OnEnable()
         {
@@ -41,7 +36,7 @@ namespace Arreo.Player
         private void Update()
         {
             bool hasControl = _mount == null || _mount.HasControl;
-            _aimBlend.Tick(Time.deltaTime, hasControl && _aim.action.IsPressed());
+            IsAiming = hasControl && _aim.action.IsPressed();
             if (!hasControl)
                 return;
 
