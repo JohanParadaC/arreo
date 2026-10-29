@@ -10,16 +10,19 @@ namespace Arreo.Rope
     public sealed class RopeTension
     {
         private readonly float _stiffness;
+        private readonly float _damping;
         private readonly float _holdForce;
         private readonly float _dragSpeedPerNewton;
         private readonly float _maxDragSpeed;
 
         /// <param name="stiffness">Newtons per meter of stretch of the whole rope.</param>
+        /// <param name="damping">Newtons per m/s the ends move apart while taut; calms the bounce.</param>
         /// <param name="holdForce">Pull the horse resists without being dragged (N).</param>
         /// <param name="dragSpeedPerNewton">Drag speed (m/s) per newton above the hold force.</param>
-        public RopeTension(float stiffness, float holdForce, float dragSpeedPerNewton, float maxDragSpeed)
+        public RopeTension(float stiffness, float damping, float holdForce, float dragSpeedPerNewton, float maxDragSpeed)
         {
             _stiffness = stiffness;
+            _damping = damping;
             _holdForce = holdForce;
             _dragSpeedPerNewton = dragSpeedPerNewton;
             _maxDragSpeed = maxDragSpeed;
@@ -34,6 +37,17 @@ namespace Arreo.Rope
         }
 
         public float FromLength(float pathLength, float restLength) => Mathf.Max(0f, pathLength - restLength) * _stiffness;
+
+        /// <summary>
+        /// Force (N) the rope pulls its two ends together with: a spring past the rest length plus
+        /// damping on how fast the ends separate. A rope never pushes, so it's never negative.
+        /// </summary>
+        public float PullForce(float distance, float restLength, float separationSpeed)
+        {
+            if (distance <= restLength)
+                return 0f;
+            return Mathf.Max(0f, (distance - restLength) * _stiffness + separationSpeed * _damping);
+        }
 
         public float DragSpeed(float tension) => Mathf.Clamp((tension - _holdForce) * _dragSpeedPerNewton, 0f, _maxDragSpeed);
     }

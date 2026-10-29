@@ -10,9 +10,40 @@ namespace Arreo.Tests.EditMode
 
         private static RopeTension CreateTension() => new RopeTension(
             stiffness: 4000f,
+            damping: 1000f,
             holdForce: 1500f,
             dragSpeedPerNewton: 0.002f,
             maxDragSpeed: 3f);
+
+        [Test]
+        public void PullForce_SlackRope_IsZero()
+        {
+            Assert.That(CreateTension().PullForce(distance: 9.5f, restLength: 10f, separationSpeed: 2f), Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void PullForce_StretchedRope_IsSpringPlusDamping()
+        {
+            // 4000 N/m * 0.5 m + 1000 Ns/m * 1 m/s
+            Assert.That(CreateTension().PullForce(distance: 10.5f, restLength: 10f, separationSpeed: 1f), Is.EqualTo(3000f).Within(Tolerance));
+        }
+
+        [Test]
+        public void PullForce_EndsClosingInFast_NeverPushes()
+        {
+            Assert.That(CreateTension().PullForce(distance: 10.1f, restLength: 10f, separationSpeed: -2f), Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void PullForce_TiedEndBetweenSaddleAndTarget_MatchesTheStretch()
+        {
+            var saddle = new Vector3(0f, 1.7f, 0f);
+            var targetEnd = new Vector3(0f, 1.7f, 10.25f);
+
+            float force = CreateTension().PullForce(Vector3.Distance(saddle, targetEnd), restLength: 10f, separationSpeed: 0f);
+
+            Assert.That(force, Is.EqualTo(1000f).Within(Tolerance));
+        }
 
         [Test]
         public void PathLength_SumsTheSegments()
