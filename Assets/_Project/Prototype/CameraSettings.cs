@@ -29,11 +29,12 @@ namespace Arreo.Prototype
         [Header("Aim (over the shoulder)")]
         [Tooltip("Seconds to move over the shoulder when aiming starts (and back when it ends).")]
         [SerializeField, Min(0f)] private float _aimBlendSeconds = 0.2f;
-        [Tooltip("Distance from the rider while aiming (m).")]
-        [SerializeField, Min(0.5f)] private float _aimDistance = 4.2f;
+        [Tooltip("Distance from the rider while aiming (m). Closer than the normal distance, like a shooter.")]
+        [SerializeField, Min(0.5f)] private float _aimDistance = 2.2f;
         [Tooltip("Where the camera sits relative to the rider while aiming (m): x = to the right, y = up. Bigger x moves the rider further left so they don't cover the crosshair.")]
         [SerializeField] private Vector3 _shoulderOffset = new Vector3(1.3f, 0.35f, 0f);
-        [SerializeField, Range(20f, 100f)] private float _aimFieldOfView = 50f;
+        [Tooltip("Field of view while aiming. About 15-20 degrees below the normal one reads as a zoom.")]
+        [SerializeField, Range(20f, 100f)] private float _aimFieldOfView = 47f;
 
         [Header("Rope camera (something caught)")]
         [Tooltip("Distance from the rider (m) before zooming to fit the catch.")]
