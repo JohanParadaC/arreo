@@ -46,7 +46,18 @@ namespace Arreo.Herd
         [Tooltip("Below this desired speed the cow just stands and grazes (m/s).")]
         [SerializeField, Min(0f)] private float _minMoveSpeed = 0.2f;
 
+        [Header("Barajustada (stampede)")]
+        [Tooltip("Seconds the whole herd bolts at full panic after a scare like thunder.")]
+        [SerializeField, Min(0f)] private float _stampedeHoldSeconds = 5f;
+        [Tooltip("Seconds the panic takes to fade out afterwards, so the herd can be gathered again.")]
+        [SerializeField, Min(0.1f)] private float _stampedeFadeSeconds = 6f;
+        [Tooltip("Acceleration of a stampeding cow (m/s²). Its pull on a rope is mass × this: 400 kg × 9 ≈ 3600 N.")]
+        [SerializeField, Min(0.1f)] private float _panicAcceleration = 9f;
+
         public float Acceleration => _acceleration;
+        public float PanicAcceleration => _panicAcceleration;
+
+        public Stampede CreateStampede() => new Stampede(_stampedeHoldSeconds, _stampedeFadeSeconds);
         public float TurnSpeed => _turnSpeed;
         public float MinMoveSpeed => _minMoveSpeed;
 

@@ -20,9 +20,16 @@ namespace Arreo.Herd
         private Vector3[] _positions = new Vector3[0];
         private Vector3[] _velocities = new Vector3[0];
         private HerdSteering _steering;
+        private Stampede _stampede;
 
         public int Count => _cows.Count;
         public IReadOnlyList<Vector3> Positions => _positions;
+
+        /// <summary>How strong the current barajustada is, 0 (calm) to 1 (full panic).</summary>
+        public float StampedeIntensity => _stampede != null ? _stampede.Intensity : 0f;
+
+        /// <summary>Barajustada: the whole herd bolts away from <paramref name="origin"/>.</summary>
+        public void TriggerStampede(Vector3 origin) => _stampede?.Trigger(origin);
 
         /// <summary>Overrides the herd size; only has an effect before Start.</summary>
         public void SetCount(int count) => _count = count;
@@ -39,6 +46,7 @@ namespace Arreo.Herd
         private void Start()
         {
             _steering = _settings.CreateSteering();
+            _stampede = _settings.CreateStampede();
             var random = new System.Random(11);
             for (int i = 0; i < _count; i++)
             {
@@ -64,16 +72,21 @@ namespace Arreo.Herd
             Vector3 riderVelocity = _rider != null ? _rider.linearVelocity : Vector3.zero;
             float riderSpeed = new Vector2(riderVelocity.x, riderVelocity.z).magnitude;
             float dt = Time.fixedDeltaTime;
+            _stampede.Tick(dt);
+            float panic = _stampede.Intensity;
+            float acceleration = Mathf.Lerp(_settings.Acceleration, _settings.PanicAcceleration, panic);
 
             for (int i = 0; i < _cows.Count; i++)
             {
                 Vector3 desired = _steering.DesiredVelocity(i, _positions, _velocities, riderPosition, riderSpeed);
+                if (panic > 0f)
+                    desired = Vector3.Lerp(desired, _steering.StampedeVelocity(i, _positions, _stampede.Origin, 1f), panic);
                 if (desired.sqrMagnitude < _settings.MinMoveSpeed * _settings.MinMoveSpeed)
                     desired = Vector3.zero;
 
                 Rigidbody cow = _cows[i];
                 Vector3 velocity = cow.linearVelocity;
-                Vector3 horizontal = Vector3.MoveTowards(new Vector3(velocity.x, 0f, velocity.z), desired, _settings.Acceleration * dt);
+                Vector3 horizontal = Vector3.MoveTowards(new Vector3(velocity.x, 0f, velocity.z), desired, acceleration * dt);
                 cow.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
 
                 if (horizontal.sqrMagnitude > 0.04f)
