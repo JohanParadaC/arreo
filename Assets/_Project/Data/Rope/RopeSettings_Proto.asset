@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44e836266a61ef94ab691b2d841f6e35, type: 3}
+  m_Name: RopeSettings_Proto
+  m_EditorClassIdentifier: Arreo.Rope::Arreo.Rope.RopeSettings
+  _maxRange: 12
+  _throwSpeed: 20
+  _minFlightTime: 0.25
+  _arcHeight: 2.5
+  _catchRadius: 1.4
+  _pointCount: 17
+  _constraintIterations: 12
+  _pointDamping: 0.05
+  _groundHeight: 0
+  _slack: 1
+  _maxLength: 15
+  _stiffness: 10000
+  _ropeDamping: 2000
+  _tautTension: 300
+  _breakTension: 2400
+  _breakSeconds: 1.2
+  _tensionSmoothing: 0.1
+  _horseHoldForce: 1500
+  _dragSpeedPerNewton: 0.002
+  _maxDragSpeed: 3
+  _saddleAnchor: {x: 0, y: 1.7, z: 0.2}
+  _retractSeconds: 1
+  _brokenSeconds: 1.5

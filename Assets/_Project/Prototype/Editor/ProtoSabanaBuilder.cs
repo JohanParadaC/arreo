@@ -3,6 +3,7 @@ using System.Linq;
 using Arreo.Herd;
 using Arreo.Horse;
 using Arreo.Player;
+using Arreo.Rope;
 using Unity.Cinemachine;
 using Unity.Cinemachine.TargetTracking;
 using UnityEditor;
@@ -15,7 +16,7 @@ using UnityEngine.SceneManagement;
 namespace Arreo.Prototype.Editor
 {
     /// <summary>
-    /// DISPOSABLE (weeks 2-3 prototype): builds the Proto_Sabana test scene from code.
+    /// DISPOSABLE (weeks 2-4 prototype): builds the Proto_Sabana test scene from code.
     /// Rebuilding overwrites the scene but keeps the settings assets, so tuning survives.
     /// </summary>
     public static class ProtoSabanaBuilder
@@ -27,6 +28,8 @@ namespace Arreo.Prototype.Editor
         private const string HorseSettingsPath = HorseSettingsFolder + "/HorseSettings_Proto.asset";
         private const string HerdSettingsFolder = "Assets/_Project/Data/Herd";
         private const string HerdSettingsPath = HerdSettingsFolder + "/HerdSettings_Proto.asset";
+        private const string RopeSettingsFolder = "Assets/_Project/Data/Rope";
+        private const string RopeSettingsPath = RopeSettingsFolder + "/RopeSettings_Proto.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
 
@@ -47,9 +50,12 @@ namespace Arreo.Prototype.Editor
             EnsureFolder(GeneratedFolder);
             EnsureFolder(HorseSettingsFolder);
             EnsureFolder(HerdSettingsFolder);
+            EnsureFolder(RopeSettingsFolder);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             PhysicsMaterial frictionless = CreateFrictionlessMaterial();
+            Light sun = Object.FindFirstObjectByType<Light>();
+            sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
             CreateGround();
             CreateBorders();
@@ -58,6 +64,11 @@ namespace Arreo.Prototype.Editor
             CreateCamera(cameraTarget);
             ActiveHerd herd = CreateHerd(horse, frictionless);
             Corral corral = CreateCorral(horse.transform, out ProtoGate gate);
+            RopeSimulation rope = CreateRope(horse);
+
+            var thunder = new GameObject("ProtoThunder").AddComponent<ProtoThunder>();
+            SetReference(thunder, "_herd", herd);
+            SetReference(thunder, "_sun", sun);
 
             var drive = new GameObject("ProtoDrive").AddComponent<ProtoDrive>();
             SetReference(drive, "_herd", herd);
@@ -68,14 +79,13 @@ namespace Arreo.Prototype.Editor
             SetReference(hud, "_horse", horse);
             SetReference(hud, "_drive", drive);
             SetReference(hud, "_gate", gate);
+            SetReference(hud, "_rope", rope);
+            SetReference(hud, "_herd", herd);
 
             var benchmark = new GameObject("ProtoBenchmark").AddComponent<ProtoBenchmark>();
             SetReference(benchmark, "_herd", herd);
             SetReference(benchmark, "_horse", horse);
             SetReference(benchmark, "_riderInput", horse.GetComponent<RiderInput>());
-
-            Light sun = Object.FindFirstObjectByType<Light>();
-            sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
@@ -302,10 +312,57 @@ namespace Arreo.Prototype.Editor
             foreach (float z in new[] { -0.6f, 0.6f })
                 AddPart(root.transform, PrimitiveType.Cube, "Leg", new Vector3(x, 0.3f, z), new Vector3(0.15f, 0.6f, 0.15f), dark);
 
+            var head = new GameObject("Head").transform;
+            head.SetParent(root.transform, false);
+            head.localPosition = new Vector3(0f, 1.1f, 1.15f);
+            var lassoTarget = root.AddComponent<LassoTarget>();
+            SetReference(lassoTarget, "_head", head);
+
             string path = $"{GeneratedFolder}/Cow_Proto.prefab";
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
             return prefab.GetComponent<Rigidbody>();
+        }
+
+        private static RopeSimulation CreateRope(HorseController horse)
+        {
+            Rigidbody horseBody = horse.GetComponent<Rigidbody>();
+
+            // Simulation and drawing live on separate objects: from week 6 only the host simulates.
+            var rope = new GameObject("RopeSimulation").AddComponent<RopeSimulation>();
+            SetReference(rope, "_settings", LoadOrCreate<RopeSettings>(RopeSettingsPath));
+            SetReference(rope, "_saddleBody", horseBody);
+
+            var material = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
+            SaveAsset(material, $"{GeneratedFolder}/Rope.mat");
+            var view = new GameObject("RopeView").AddComponent<RopeView>();
+            SetReference(view, "_rope", rope);
+            SetReference(view, "_line", CreateLine(view.transform, "RopeLine", material, 0.045f));
+            SetReference(view, "_loop", CreateLine(view.transform, "RopeLoop", material, 0.04f));
+
+            var input = horse.gameObject.AddComponent<LassoInput>();
+            SetReference(input, "_rope", rope);
+            SetReference(input, "_horse", horseBody);
+            SetReference(input, "_throw", FindAction("Player/Attack"));
+            SetReference(input, "_release", FindAction("Player/ReleaseRope"));
+
+            var link = new GameObject("ProtoRopeLink").AddComponent<ProtoRopeLink>();
+            SetReference(link, "_rope", rope);
+            SetReference(link, "_horse", horse);
+            return rope;
+        }
+
+        private static LineRenderer CreateLine(Transform parent, string name, Material material, float width)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var line = go.AddComponent<LineRenderer>();
+            line.sharedMaterial = material;
+            line.widthMultiplier = width;
+            line.numCornerVertices = 2;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            line.positionCount = 0;
+            return line;
         }
 
         private static Corral CreateCorral(Transform rider, out ProtoGate gate)
