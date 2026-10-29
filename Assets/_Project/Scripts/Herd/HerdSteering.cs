@@ -58,5 +58,16 @@ namespace Arreo.Herd
 
             return Vector3.ClampMagnitude(velocity, Mathf.Lerp(_fleeSpeed, _panicSpeed, panic));
         }
+
+        /// <summary>Barajustada: bolt straight away from the scare at panic speed, scaled by intensity.</summary>
+        public Vector3 StampedeVelocity(int self, IReadOnlyList<Vector3> positions, Vector3 origin, float intensity)
+        {
+            if (intensity <= 0f)
+                return Vector3.zero;
+
+            Vector3 velocity = RiderFear.FleeDirection(positions[self], origin) * _panicSpeed
+                + BoidRules.Separation(self, positions, _separationRadius) * (_separationStrength * 2f);
+            return Vector3.ClampMagnitude(velocity, _panicSpeed) * intensity;
+        }
     }
 }

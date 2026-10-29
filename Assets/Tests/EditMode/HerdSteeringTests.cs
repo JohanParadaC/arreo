@@ -138,5 +138,30 @@ namespace Arreo.Tests.EditMode
 
             Assert.That(velocity.x, Is.EqualTo(1.5f).Within(0.001f));
         }
+
+        [Test]
+        public void StampedeVelocity_RunsAwayFromTheThunderAtPanicSpeed()
+        {
+            Vector3 velocity = CreateSteering().StampedeVelocity(0, new[] { new Vector3(0f, 0f, 10f) }, Vector3.zero, intensity: 1f);
+
+            Assert.That(velocity.x, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(velocity.z, Is.EqualTo(8f).Within(0.001f));
+        }
+
+        [Test]
+        public void StampedeVelocity_FadingIntensity_IsSlower()
+        {
+            Vector3 velocity = CreateSteering().StampedeVelocity(0, new[] { new Vector3(0f, 0f, 10f) }, Vector3.zero, intensity: 0.5f);
+
+            Assert.That(velocity.magnitude, Is.EqualTo(4f).Within(0.001f));
+        }
+
+        [Test]
+        public void StampedeVelocity_NoIntensity_IsZero()
+        {
+            Vector3 velocity = CreateSteering().StampedeVelocity(0, new[] { new Vector3(0f, 0f, 10f) }, Vector3.zero, intensity: 0f);
+
+            Assert.That(velocity, Is.EqualTo(Vector3.zero));
+        }
     }
 }
