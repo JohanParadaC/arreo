@@ -5,6 +5,8 @@
         "Arreo.Herd",
         "Arreo.Horse",
         "Arreo.Rope",
+        "Arreo.Player",
+        "Unity.Cinemachine",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

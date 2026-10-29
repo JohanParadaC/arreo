@@ -30,6 +30,8 @@ namespace Arreo.Prototype.Editor
         private const string HerdSettingsPath = HerdSettingsFolder + "/HerdSettings_Proto.asset";
         private const string RopeSettingsFolder = "Assets/_Project/Data/Rope";
         private const string RopeSettingsPath = RopeSettingsFolder + "/RopeSettings_Proto.asset";
+        private const string RiderSettingsFolder = "Assets/_Project/Data/Rider";
+        private const string RiderSettingsPath = RiderSettingsFolder + "/RiderSettings_Proto.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
 
@@ -51,6 +53,7 @@ namespace Arreo.Prototype.Editor
             EnsureFolder(HorseSettingsFolder);
             EnsureFolder(HerdSettingsFolder);
             EnsureFolder(RopeSettingsFolder);
+            EnsureFolder(RiderSettingsFolder);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             PhysicsMaterial frictionless = CreateFrictionlessMaterial();
@@ -61,10 +64,12 @@ namespace Arreo.Prototype.Editor
             CreateBorders();
             CreateObstacles();
             HorseController horse = CreateHorse(LoadOrCreate<HorseSettings>(HorseSettingsPath), frictionless, out Transform cameraTarget);
-            CreateCamera(cameraTarget);
+            CinemachineCamera riderCamera = CreateCamera(cameraTarget);
             ActiveHerd herd = CreateHerd(horse, frictionless);
             Corral corral = CreateCorral(horse.transform, out ProtoGate gate);
             RopeSimulation rope = CreateRope(horse);
+            RiderMount mount = CreateRider(horse, rope, out LassoInput lasso);
+            CreateRopeCamera(riderCamera, cameraTarget, rope, lasso, mount);
 
             var thunder = new GameObject("ProtoThunder").AddComponent<ProtoThunder>();
             SetReference(thunder, "_herd", herd);
@@ -81,6 +86,9 @@ namespace Arreo.Prototype.Editor
             SetReference(hud, "_gate", gate);
             SetReference(hud, "_rope", rope);
             SetReference(hud, "_herd", herd);
+            SetReference(hud, "_lasso", lasso);
+            SetReference(hud, "_mount", mount);
+            SetReference(hud, "_riderInput", horse.GetComponent<RiderInput>());
 
             var benchmark = new GameObject("ProtoBenchmark").AddComponent<ProtoBenchmark>();
             SetReference(benchmark, "_herd", herd);
@@ -236,16 +244,18 @@ namespace Arreo.Prototype.Editor
             return controller;
         }
 
-        private static void CreateCamera(Transform target)
+        private static CinemachineCamera CreateCamera(Transform target)
         {
             Camera mainCamera = Camera.main;
-            mainCamera.gameObject.AddComponent<CinemachineBrain>();
+            var brain = mainCamera.gameObject.AddComponent<CinemachineBrain>();
+            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.EaseInOut, 0.4f);
             mainCamera.farClipPlane = 800f;
 
             var go = new GameObject("CM Rider Camera");
             var cinemachineCamera = go.AddComponent<CinemachineCamera>();
             cinemachineCamera.Target.TrackingTarget = target;
             cinemachineCamera.Lens.FieldOfView = 65f;
+            cinemachineCamera.Priority.Value = 10;
 
             var orbit = go.AddComponent<CinemachineOrbitalFollow>();
             orbit.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.Sphere;
@@ -273,6 +283,77 @@ namespace Arreo.Prototype.Editor
             axisController.SynchronizeControllers();
             foreach (var axis in axisController.Controllers)
                 Debug.Log($"[ProtoSabanaBuilder] Camera axis '{axis.Name}' -> {(axis.Input.InputAction != null ? axis.Input.InputAction.name : "NO ACTION")}, gain {axis.Input.Gain}");
+            return cinemachineCamera;
+        }
+
+        private static void CreateRopeCamera(CinemachineCamera riderCamera, Transform riderTarget, RopeSimulation rope,
+            LassoInput lasso, RiderMount mount)
+        {
+            // Rider plus the caught head; the rope camera looks at the pair and zooms to fit both.
+            var group = new GameObject("RopeTargetGroup").AddComponent<CinemachineTargetGroup>();
+            group.AddMember(riderTarget, 1f, 1.5f);
+
+            var go = new GameObject("CM Rope Camera");
+            var ropeCamera = go.AddComponent<CinemachineCamera>();
+            ropeCamera.Target.TrackingTarget = riderTarget;
+            ropeCamera.Target.CustomLookAtTarget = true;
+            ropeCamera.Target.LookAtTarget = group.transform;
+            ropeCamera.Lens.FieldOfView = 60f;
+            ropeCamera.Priority.Value = 0;
+
+            var orbit = go.AddComponent<CinemachineOrbitalFollow>();
+            orbit.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.Sphere;
+            orbit.Radius = 9f;
+            // World space: ProtoCameraRig turns the horizontal axis so the camera sits behind the rider facing the catch.
+            orbit.TrackerSettings.BindingMode = BindingMode.WorldSpace;
+            orbit.TrackerSettings.PositionDamping = new Vector3(0.3f, 0.3f, 0.3f);
+            InputAxis vertical = orbit.VerticalAxis;
+            vertical.Value = vertical.Center = 20f;
+            orbit.VerticalAxis = vertical;
+
+            var composer = go.AddComponent<CinemachineRotationComposer>();
+            composer.Damping = new Vector2(0.3f, 0.3f);
+            var framing = go.AddComponent<CinemachineGroupFraming>();
+            framing.FramingSize = 0.6f;
+            framing.SizeAdjustment = CinemachineGroupFraming.SizeAdjustmentModes.ZoomOnly;
+            framing.Damping = 1f;
+
+            var rig = new GameObject("ProtoCameraRig").AddComponent<ProtoCameraRig>();
+            SetReference(rig, "_riderCamera", riderCamera);
+            SetReference(rig, "_riderOrbit", riderCamera.GetComponent<CinemachineOrbitalFollow>());
+            SetReference(rig, "_riderComposer", riderCamera.GetComponent<CinemachineRotationComposer>());
+            SetReference(rig, "_ropeCamera", ropeCamera);
+            SetReference(rig, "_ropeOrbit", orbit);
+            SetReference(rig, "_group", group);
+            SetReference(rig, "_riderTarget", riderTarget);
+            SetReference(rig, "_rope", rope);
+            SetReference(rig, "_lasso", lasso);
+            SetReference(rig, "_mount", mount);
+        }
+
+        private static RiderMount CreateRider(HorseController horse, RopeSimulation rope, out LassoInput lasso)
+        {
+            Rigidbody horseBody = horse.GetComponent<Rigidbody>();
+            var settings = LoadOrCreate<RiderSettings>(RiderSettingsPath);
+
+            var mount = horse.gameObject.AddComponent<RiderMount>();
+            SetReference(mount, "_settings", settings);
+            SetReference(mount, "_horse", horse);
+            SetReference(mount, "_rope", rope);
+            SetReference(mount, "_riderModel", horse.transform.Find("Rider"));
+            SetReference(mount, "_clothes", AssetDatabase.LoadAssetAtPath<Material>($"{GeneratedFolder}/RiderPoncho.mat"));
+            SetReference(mount, "_skin", AssetDatabase.LoadAssetAtPath<Material>($"{GeneratedFolder}/RiderHat.mat"));
+            SetReference(horse.GetComponent<RiderInput>(), "_mount", mount);
+
+            lasso = horse.gameObject.AddComponent<LassoInput>();
+            SetReference(lasso, "_rope", rope);
+            SetReference(lasso, "_settings", settings);
+            SetReference(lasso, "_mount", mount);
+            SetReference(lasso, "_horse", horseBody);
+            SetReference(lasso, "_aim", FindAction("Player/Aim"));
+            SetReference(lasso, "_throw", FindAction("Player/Attack"));
+            SetReference(lasso, "_release", FindAction("Player/ReleaseRope"));
+            return mount;
         }
 
         private static ActiveHerd CreateHerd(HorseController horse, PhysicsMaterial frictionless)
@@ -339,12 +420,6 @@ namespace Arreo.Prototype.Editor
             SetReference(view, "_rope", rope);
             SetReference(view, "_line", CreateLine(view.transform, "RopeLine", material, 0.045f));
             SetReference(view, "_loop", CreateLine(view.transform, "RopeLoop", material, 0.04f));
-
-            var input = horse.gameObject.AddComponent<LassoInput>();
-            SetReference(input, "_rope", rope);
-            SetReference(input, "_horse", horseBody);
-            SetReference(input, "_throw", FindAction("Player/Attack"));
-            SetReference(input, "_release", FindAction("Player/ReleaseRope"));
 
             var link = new GameObject("ProtoRopeLink").AddComponent<ProtoRopeLink>();
             SetReference(link, "_rope", rope);

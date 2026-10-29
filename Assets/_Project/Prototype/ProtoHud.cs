@@ -1,5 +1,6 @@
 using Arreo.Herd;
 using Arreo.Horse;
+using Arreo.Player;
 using Arreo.Rope;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -17,6 +18,9 @@ namespace Arreo.Prototype
         [SerializeField] private ProtoGate _gate;
         [SerializeField] private RopeSimulation _rope;
         [SerializeField] private ActiveHerd _herd;
+        [SerializeField] private LassoInput _lasso;
+        [SerializeField] private RiderMount _mount;
+        [SerializeField] private RiderInput _riderInput;
 
         private GUIStyle _style;
         private GUIStyle _banner;
@@ -45,7 +49,8 @@ namespace Arreo.Prototype
 
             _style ??= new GUIStyle(GUI.skin.label) { fontSize = 18 };
             HorseStamina stamina = locomotion.Stamina;
-            string gait = locomotion.IsGalloping ? "GALOPE" : stamina.IsExhausted ? "AGOTADO" : locomotion.IsDriving ? "arreo" : "paso";
+            bool driving = locomotion.IsDriving || (_riderInput != null && _riderInput.SlowWalkOn);
+            string gait = locomotion.IsGalloping ? "GALOPE" : stamina.IsExhausted ? "AGOTADO" : driving ? "arreo" : "paso";
 
             GUI.Box(new Rect(10, 10, 300, 125), GUIContent.none);
             GUI.Label(new Rect(20, 15, 280, 25), $"{locomotion.Speed * 3.6f:0} km/h  ({gait})", _style);
@@ -54,7 +59,7 @@ namespace Arreo.Prototype
             GUI.DrawTexture(new Rect(100, 47, 190 * stamina.Normalized, 18), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(20, 70, 290, 62),
-                "WASD: riendas · Shift: galopar · Ctrl: arreo\nClic izq: lanzar soga · Clic der: soltarla\nB: trueno · Ratón: cámara · Esc: cursor");
+                "WASD: riendas · Shift: galopar · C: arreo on/off\nClic der: apuntar · Clic izq: lanzar · Q: soltar\nB: trueno · Ratón: cámara · Esc: cursor");
 
             DrawDrive();
             DrawRope();
@@ -90,18 +95,27 @@ namespace Arreo.Prototype
 
         private void DrawCrosshairAndBanner()
         {
-            float cx = Screen.width / 2f;
-            float cy = Screen.height / 2f;
-            GUI.DrawTexture(new Rect(cx - 8f, cy - 1f, 16f, 2f), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(cx - 1f, cy - 8f, 2f, 16f), Texture2D.whiteTexture);
+            if (_lasso != null && _lasso.Aim != null && _lasso.Aim.IsAiming)
+            {
+                float cx = Screen.width / 2f;
+                float cy = Screen.height / 2f;
+                GUI.DrawTexture(new Rect(cx - 8f, cy - 1f, 16f, 2f), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(cx - 1f, cy - 8f, 2f, 16f), Texture2D.whiteTexture);
+            }
 
+            _banner ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             if (_herd != null && _herd.StampedeIntensity > 0f)
             {
-                _banner ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
                 GUI.color = new Color(1f, 0.85f, 0.2f, Mathf.Clamp01(_herd.StampedeIntensity * 2f));
                 GUI.Label(new Rect(0f, 40f, Screen.width, 50f), "¡BARAJUSTADA!", _banner);
-                GUI.color = Color.white;
             }
+            if (_mount != null && _mount.State != RiderState.Mounted)
+            {
+                GUI.color = new Color(1f, 0.4f, 0.3f);
+                GUI.Label(new Rect(0f, 95f, Screen.width, 50f),
+                    _mount.State == RiderState.Fallen ? "¡AL SUELO!" : "volviendo a montar…", _banner);
+            }
+            GUI.color = Color.white;
         }
 
         private void DrawDrive()
