@@ -40,7 +40,7 @@ namespace Arreo.Prototype
 
             _style ??= new GUIStyle(GUI.skin.label) { fontSize = 18 };
             HorseStamina stamina = locomotion.Stamina;
-            string gait = locomotion.IsGalloping ? "GALOPE" : stamina.IsExhausted ? "AGOTADO" : "paso";
+            string gait = locomotion.IsGalloping ? "GALOPE" : stamina.IsExhausted ? "AGOTADO" : locomotion.IsDriving ? "arreo" : "paso";
 
             GUI.Box(new Rect(10, 10, 280, 110), GUIContent.none);
             GUI.Label(new Rect(20, 15, 260, 25), $"{locomotion.Speed * 3.6f:0} km/h  ({gait})", _style);
@@ -48,7 +48,7 @@ namespace Arreo.Prototype
             GUI.color = stamina.IsExhausted ? Color.red : Color.green;
             GUI.DrawTexture(new Rect(100, 47, 180 * stamina.Normalized, 18), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(20, 72, 270, 45), "WASD/stick: riendas · Shift: galopar\nRatón: cámara · Esc: soltar cursor");
+            GUI.Label(new Rect(20, 72, 270, 45), "WASD: riendas · Shift: galopar · Ctrl: arreo\nRatón: cámara · Esc: soltar cursor");
 
             DrawDrive();
         }

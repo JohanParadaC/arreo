@@ -221,6 +221,7 @@ namespace Arreo.Prototype.Editor
             SetReference(input, "_horse", controller);
             SetReference(input, "_move", FindAction("Player/Move"));
             SetReference(input, "_gallop", FindAction("Player/Sprint"));
+            SetReference(input, "_slowWalk", FindAction("Player/SlowWalk"));
 
             return controller;
         }
