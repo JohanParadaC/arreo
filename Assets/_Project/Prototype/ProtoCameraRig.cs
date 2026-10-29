@@ -35,6 +35,30 @@ namespace Arreo.Prototype
         private Transform _framedHead;
         private float _swingVelocity;
 
+        private void Awake()
+        {
+            // One clear error naming the empty field, instead of a NullReferenceException every frame.
+            var missing = new System.Collections.Generic.List<string>();
+            if (_settings == null) missing.Add(nameof(_settings));
+            if (_brain == null) missing.Add(nameof(_brain));
+            if (_riderCamera == null) missing.Add(nameof(_riderCamera));
+            if (_riderOrbit == null) missing.Add(nameof(_riderOrbit));
+            if (_riderComposer == null) missing.Add(nameof(_riderComposer));
+            if (_ropeCamera == null) missing.Add(nameof(_ropeCamera));
+            if (_ropeOrbit == null) missing.Add(nameof(_ropeOrbit));
+            if (_ropeFraming == null) missing.Add(nameof(_ropeFraming));
+            if (_group == null) missing.Add(nameof(_group));
+            if (_riderTarget == null) missing.Add(nameof(_riderTarget));
+            if (_rope == null) missing.Add(nameof(_rope));
+            if (_lasso == null) missing.Add(nameof(_lasso));
+            if (_mount == null) missing.Add(nameof(_mount));
+            if (missing.Count == 0)
+                return;
+
+            Debug.LogError($"ProtoCameraRig is missing: {string.Join(", ", missing)}. Rebuild the scene (Arreo > Prototype > Rebuild Proto_Sabana).", this);
+            enabled = false;
+        }
+
         private void LateUpdate()
         {
             // Recreate the blend if its time was tuned while playing.

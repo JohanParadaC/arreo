@@ -57,9 +57,11 @@ namespace Arreo.Prototype.Editor
             EnsureFolder(RopeSettingsFolder);
             EnsureFolder(RiderSettingsFolder);
             EnsureFolder(CameraSettingsFolder);
-            var cameraSettings = LoadOrCreate<CameraSettings>(CameraSettingsPath);
 
+            // Load every asset only after NewScene: it unloads unused assets, and a settings asset
+            // loaded before it came back as a dead reference (that left ProtoCameraRig without settings).
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+            var cameraSettings = LoadOrCreate<CameraSettings>(CameraSettingsPath);
             PhysicsMaterial frictionless = CreateFrictionlessMaterial();
             Light sun = Object.FindFirstObjectByType<Light>();
             sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
@@ -619,8 +621,13 @@ namespace Arreo.Prototype.Editor
             SerializedProperty property = serialized.FindProperty(field);
             if (property == null)
                 throw new System.InvalidOperationException($"{target.GetType().Name} has no serialized field '{field}'.");
+            // Unity's == also catches destroyed objects, which would otherwise save as an empty field.
+            if (value == null)
+                throw new System.InvalidOperationException($"{target.GetType().Name}.{field} would be left empty.");
             property.objectReferenceValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            if (property.objectReferenceValue == null)
+                throw new System.InvalidOperationException($"{target.GetType().Name}.{field} did not keep its reference.");
         }
 
         private static void SetReferences(Object target, string field, params Object[] values)
@@ -629,6 +636,9 @@ namespace Arreo.Prototype.Editor
             SerializedProperty property = serialized.FindProperty(field);
             if (property == null || !property.isArray)
                 throw new System.InvalidOperationException($"{target.GetType().Name} has no serialized array '{field}'.");
+            for (int i = 0; i < values.Length; i++)
+                if (values[i] == null)
+                    throw new System.InvalidOperationException($"{target.GetType().Name}.{field}[{i}] would be left empty.");
             property.arraySize = values.Length;
             for (int i = 0; i < values.Length; i++)
                 property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
