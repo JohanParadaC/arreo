@@ -37,6 +37,7 @@ namespace Arreo.Prototype.Editor
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
         private const string PlayerTag = "Player";
+        private const string GroundLayerName = "Ground";
 
         private const float GroundSize = 600f;
         private const float ObstacleRadius = 270f;
@@ -137,6 +138,9 @@ namespace Arreo.Prototype.Editor
         {
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ground.name = "Ground";
+            // Its own layer, so whatever needs "the floor" (the camera's terrain check) doesn't
+            // mistake ramps, palms or walls for it.
+            ground.layer = GroundLayer();
             ground.transform.position = new Vector3(0f, -0.5f, 0f);
             ground.transform.localScale = new Vector3(GroundSize, 1f, GroundSize);
             ground.isStatic = true;
@@ -350,14 +354,24 @@ namespace Arreo.Prototype.Editor
 
         private static CinemachineDecollider AddDecollider(GameObject camera, CameraSettings settings)
         {
-            // Keeps the camera out of the horse, cattle, obstacles and ground. Resolved from the rider
-            // (follow target) so a rope camera looking at the herd isn't pulled in by cows near the catch.
+            // Keeps the camera above the ground and out of the horse, cattle and obstacles. Resolved
+            // from the rider (follow target) so a rope camera looking at the herd isn't pulled in by
+            // cows near the catch. Only the Ground layer is terrain: left on its default (every
+            // Default-layer object), terrain lifted the camera over walls and switched off decollision.
+            int groundMask = 1 << GroundLayer();
             var decollider = camera.AddComponent<CinemachineDecollider>();
             decollider.CameraRadius = settings.CameraRadius;
+            decollider.TerrainResolution = new CinemachineDecollider.TerrainSettings
+            {
+                Enabled = true,
+                TerrainLayers = groundMask,
+                MaximumRaycast = 10f,
+                Damping = 0.5f,
+            };
             decollider.Decollision = new CinemachineDecollider.DecollisionSettings
             {
                 Enabled = true,
-                ObstacleLayers = Physics.DefaultRaycastLayers,
+                ObstacleLayers = Physics.DefaultRaycastLayers & ~groundMask,
                 UseFollowTarget = new CinemachineDecollider.DecollisionSettings.FollowTargetSettings { Enabled = true, YOffset = 0f },
                 Damping = settings.CollisionDamping,
                 SmoothingTime = 0.1f,
@@ -673,6 +687,14 @@ namespace Arreo.Prototype.Editor
             for (int i = 0; i < values.Length; i++)
                 property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
             serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static int GroundLayer()
+        {
+            int layer = LayerMask.NameToLayer(GroundLayerName);
+            if (layer < 0)
+                throw new System.InvalidOperationException($"Layer '{GroundLayerName}' is missing from Project Settings > Tags and Layers.");
+            return layer;
         }
 
         private static void EnsureFolder(string path)

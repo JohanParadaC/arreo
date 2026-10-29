@@ -91,7 +91,7 @@ namespace Arreo.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ObstacleBetweenCameraAndRider_MovesTheCameraInUntilItSeesTheRider()
+        public IEnumerator ObstacleBetweenCameraAndRider_PullsTheCameraInFrontOfIt()
         {
             LogAssert.ignoreFailingMessages = true;
             Transform target = GameObject.Find("CameraTarget").transform;
@@ -106,13 +106,16 @@ namespace Arreo.Tests.PlayMode
             yield return new WaitForSeconds(1f);
 
             float blockedDistance = Vector3.Distance(camera.transform.position, target.position);
+            float cameraHeight = camera.transform.position.y;
+            float wallTop = wall.GetComponent<Collider>().bounds.max.y;
             bool blocked = Physics.Linecast(camera.transform.position, target.position, out RaycastHit hit)
                 && !hit.collider.CompareTag("Player");
             Object.Destroy(wall);
-            Debug.Log($"[ProtoSabanaSceneTests] camera distance with a wall in the way {normalDistance:0.0} -> {blockedDistance:0.0} m");
+            Debug.Log($"[ProtoSabanaSceneTests] camera distance with a wall in the way {normalDistance:0.0} -> {blockedDistance:0.0} m, height {cameraHeight:0.0} m (wall top {wallTop:0.0} m)");
 
-            // In front of the wall, or lifted over its top by the decollider's terrain check: either way, closer.
-            Assert.That(blockedDistance, Is.LessThan(normalDistance - 1f), "the camera did not move in");
+            Assert.That(blockedDistance, Is.LessThan(normalDistance * 0.5f), "the camera did not move in front of the wall");
+            // Only the Ground layer counts as terrain, so the wall must not lift the camera over its top.
+            Assert.That(cameraHeight, Is.LessThan(wallTop), "the camera climbed over the wall");
             Assert.That(blocked, Is.False, $"the camera still can't see the rider (blocked by {(blocked ? hit.collider.name : "")})");
         }
 
