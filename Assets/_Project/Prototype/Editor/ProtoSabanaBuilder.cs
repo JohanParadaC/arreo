@@ -32,6 +32,8 @@ namespace Arreo.Prototype.Editor
         private const string RopeSettingsPath = RopeSettingsFolder + "/RopeSettings_Proto.asset";
         private const string RiderSettingsFolder = "Assets/_Project/Data/Rider";
         private const string RiderSettingsPath = RiderSettingsFolder + "/RiderSettings_Proto.asset";
+        private const string CameraSettingsFolder = "Assets/_Project/Data/Camera";
+        private const string CameraSettingsPath = CameraSettingsFolder + "/CameraSettings_Proto.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
 
@@ -54,6 +56,8 @@ namespace Arreo.Prototype.Editor
             EnsureFolder(HerdSettingsFolder);
             EnsureFolder(RopeSettingsFolder);
             EnsureFolder(RiderSettingsFolder);
+            EnsureFolder(CameraSettingsFolder);
+            var cameraSettings = LoadOrCreate<CameraSettings>(CameraSettingsPath);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             PhysicsMaterial frictionless = CreateFrictionlessMaterial();
@@ -64,12 +68,12 @@ namespace Arreo.Prototype.Editor
             CreateBorders();
             CreateObstacles();
             HorseController horse = CreateHorse(LoadOrCreate<HorseSettings>(HorseSettingsPath), frictionless, out Transform cameraTarget);
-            CinemachineCamera riderCamera = CreateCamera(cameraTarget);
+            CinemachineCamera riderCamera = CreateCamera(cameraTarget, cameraSettings);
             ActiveHerd herd = CreateHerd(horse, frictionless);
             Corral corral = CreateCorral(horse.transform, out ProtoGate gate);
             RopeSimulation rope = CreateRope(horse);
             RiderMount mount = CreateRider(horse, rope, out LassoInput lasso);
-            CreateRopeCamera(riderCamera, cameraTarget, rope, lasso, mount);
+            CreateRopeCamera(riderCamera, cameraTarget, rope, lasso, mount, cameraSettings);
 
             var thunder = new GameObject("ProtoThunder").AddComponent<ProtoThunder>();
             SetReference(thunder, "_herd", herd);
@@ -244,40 +248,41 @@ namespace Arreo.Prototype.Editor
             return controller;
         }
 
-        private static CinemachineCamera CreateCamera(Transform target)
+        private static CinemachineCamera CreateCamera(Transform target, CameraSettings settings)
         {
             Camera mainCamera = Camera.main;
             var brain = mainCamera.gameObject.AddComponent<CinemachineBrain>();
-            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.EaseInOut, 0.4f);
+            brain.DefaultBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.EaseInOut, settings.BlendSeconds);
             mainCamera.farClipPlane = 800f;
 
             var go = new GameObject("CM Rider Camera");
             var cinemachineCamera = go.AddComponent<CinemachineCamera>();
             cinemachineCamera.Target.TrackingTarget = target;
-            cinemachineCamera.Lens.FieldOfView = 65f;
+            cinemachineCamera.Lens.FieldOfView = settings.FieldOfView;
             cinemachineCamera.Priority.Value = 10;
 
             var orbit = go.AddComponent<CinemachineOrbitalFollow>();
             orbit.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.Sphere;
-            orbit.Radius = 7f;
+            orbit.Radius = settings.Distance;
             // Orbit is relative to the horse's heading, so the camera swings behind it as it turns.
             orbit.TrackerSettings.BindingMode = BindingMode.LockToTargetWithWorldUp;
-            orbit.TrackerSettings.PositionDamping = new Vector3(0.2f, 0.4f, 0.3f);
-            orbit.TrackerSettings.RotationDamping = new Vector3(0f, 0.5f, 0f);
+            orbit.TrackerSettings.PositionDamping = settings.PositionDamping;
+            orbit.TrackerSettings.RotationDamping = new Vector3(0f, settings.TurnDamping, 0f);
 
             InputAxis horizontal = orbit.HorizontalAxis;
             horizontal.Recentering.Enabled = true;
-            horizontal.Recentering.Wait = 1f;
-            horizontal.Recentering.Time = 0.5f;
+            horizontal.Recentering.Wait = settings.RecenterWait;
+            horizontal.Recentering.Time = settings.RecenterTime;
             orbit.HorizontalAxis = horizontal;
 
             InputAxis vertical = orbit.VerticalAxis;
-            vertical.Value = vertical.Center = 12f;
-            vertical.Range = new Vector2(-10f, 50f);
+            vertical.Value = vertical.Center = settings.StartPitch;
+            vertical.Range = settings.PitchRange;
             orbit.VerticalAxis = vertical;
 
             var composer = go.AddComponent<CinemachineRotationComposer>();
             composer.Damping = new Vector2(0.1f, 0.1f);
+            AddDecollider(go, settings);
 
             var axisController = go.AddComponent<CinemachineInputAxisController>();
             axisController.SynchronizeControllers();
@@ -287,7 +292,7 @@ namespace Arreo.Prototype.Editor
         }
 
         private static void CreateRopeCamera(CinemachineCamera riderCamera, Transform riderTarget, RopeSimulation rope,
-            LassoInput lasso, RiderMount mount)
+            LassoInput lasso, RiderMount mount, CameraSettings settings)
         {
             // Rider plus the caught head; the rope camera looks at the pair and zooms to fit both.
             var group = new GameObject("RopeTargetGroup").AddComponent<CinemachineTargetGroup>();
@@ -298,27 +303,32 @@ namespace Arreo.Prototype.Editor
             ropeCamera.Target.TrackingTarget = riderTarget;
             ropeCamera.Target.CustomLookAtTarget = true;
             ropeCamera.Target.LookAtTarget = group.transform;
-            ropeCamera.Lens.FieldOfView = 60f;
+            ropeCamera.Lens.FieldOfView = settings.RopeFieldOfView;
             ropeCamera.Priority.Value = 0;
 
             var orbit = go.AddComponent<CinemachineOrbitalFollow>();
             orbit.OrbitStyle = CinemachineOrbitalFollow.OrbitStyles.Sphere;
-            orbit.Radius = 9f;
+            orbit.Radius = settings.RopeDistance;
             // World space: ProtoCameraRig turns the horizontal axis so the camera sits behind the rider facing the catch.
             orbit.TrackerSettings.BindingMode = BindingMode.WorldSpace;
-            orbit.TrackerSettings.PositionDamping = new Vector3(0.3f, 0.3f, 0.3f);
+            orbit.TrackerSettings.PositionDamping = Vector3.one * settings.RopePositionDamping;
             InputAxis vertical = orbit.VerticalAxis;
-            vertical.Value = vertical.Center = 20f;
+            vertical.Value = vertical.Center = settings.RopePitch;
             orbit.VerticalAxis = vertical;
 
             var composer = go.AddComponent<CinemachineRotationComposer>();
             composer.Damping = new Vector2(0.3f, 0.3f);
             var framing = go.AddComponent<CinemachineGroupFraming>();
-            framing.FramingSize = 0.6f;
+            framing.FramingSize = settings.FramingSize;
             framing.SizeAdjustment = CinemachineGroupFraming.SizeAdjustmentModes.ZoomOnly;
-            framing.Damping = 1f;
+            framing.Damping = settings.FramingDamping;
+            CinemachineDecollider ropeDecollider = AddDecollider(go, settings);
 
             var rig = new GameObject("ProtoCameraRig").AddComponent<ProtoCameraRig>();
+            SetReference(rig, "_settings", settings);
+            SetReference(rig, "_brain", Camera.main.GetComponent<CinemachineBrain>());
+            SetReference(rig, "_ropeFraming", framing);
+            SetReferences(rig, "_decolliders", riderCamera.GetComponent<CinemachineDecollider>(), ropeDecollider);
             SetReference(rig, "_riderCamera", riderCamera);
             SetReference(rig, "_riderOrbit", riderCamera.GetComponent<CinemachineOrbitalFollow>());
             SetReference(rig, "_riderComposer", riderCamera.GetComponent<CinemachineRotationComposer>());
@@ -329,6 +339,23 @@ namespace Arreo.Prototype.Editor
             SetReference(rig, "_rope", rope);
             SetReference(rig, "_lasso", lasso);
             SetReference(rig, "_mount", mount);
+        }
+
+        private static CinemachineDecollider AddDecollider(GameObject camera, CameraSettings settings)
+        {
+            // Keeps the camera out of the horse, cattle, obstacles and ground. Resolved from the rider
+            // (follow target) so a rope camera looking at the herd isn't pulled in by cows near the catch.
+            var decollider = camera.AddComponent<CinemachineDecollider>();
+            decollider.CameraRadius = settings.CameraRadius;
+            decollider.Decollision = new CinemachineDecollider.DecollisionSettings
+            {
+                Enabled = true,
+                ObstacleLayers = Physics.DefaultRaycastLayers,
+                UseFollowTarget = new CinemachineDecollider.DecollisionSettings.FollowTargetSettings { Enabled = true, YOffset = 0f },
+                Damping = settings.CollisionDamping,
+                SmoothingTime = 0.1f,
+            };
+            return decollider;
         }
 
         private static RiderMount CreateRider(HorseController horse, RopeSimulation rope, out LassoInput lasso)
@@ -347,7 +374,6 @@ namespace Arreo.Prototype.Editor
 
             lasso = horse.gameObject.AddComponent<LassoInput>();
             SetReference(lasso, "_rope", rope);
-            SetReference(lasso, "_settings", settings);
             SetReference(lasso, "_mount", mount);
             SetReference(lasso, "_horse", horseBody);
             SetReference(lasso, "_aim", FindAction("Player/Aim"));
@@ -594,6 +620,18 @@ namespace Arreo.Prototype.Editor
             if (property == null)
                 throw new System.InvalidOperationException($"{target.GetType().Name} has no serialized field '{field}'.");
             property.objectReferenceValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetReferences(Object target, string field, params Object[] values)
+        {
+            var serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(field);
+            if (property == null || !property.isArray)
+                throw new System.InvalidOperationException($"{target.GetType().Name} has no serialized array '{field}'.");
+            property.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++)
+                property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

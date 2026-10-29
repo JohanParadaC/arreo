@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32b82d82a4e633445b1d7c320c14083c, type: 3}
+  m_Name: CameraSettings_Proto
+  m_EditorClassIdentifier: Arreo.Prototype::Arreo.Prototype.CameraSettings
+  _distance: 7
+  _fieldOfView: 65
+  _startPitch: 12
+  _pitchRange: {x: -10, y: 50}
+  _positionDamping: {x: 0.2, y: 0.4, z: 0.3}
+  _turnDamping: 0.5
+  _recenterWait: 1
+  _recenterTime: 0.5
+  _aimBlendSeconds: 0.2
+  _aimDistance: 4.2
+  _shoulderOffset: {x: 1.3, y: 0.35, z: 0}
+  _aimFieldOfView: 50
+  _ropeDistance: 9
+  _ropePitch: 20
+  _ropeFieldOfView: 60
+  _framingSize: 0.6
+  _framingDamping: 1
+  _swingSmoothTime: 0.35
+  _ropePositionDamping: 0.3
+  _blendSeconds: 0.4
+  _cameraRadius: 0.4
+  _collisionDamping: 0.3

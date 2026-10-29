@@ -95,7 +95,7 @@ namespace Arreo.Prototype
 
         private void DrawCrosshairAndBanner()
         {
-            if (_lasso != null && _lasso.Aim != null && _lasso.Aim.IsAiming)
+            if (_lasso != null && _lasso.IsAiming)
             {
                 float cx = Screen.width / 2f;
                 float cy = Screen.height / 2f;
