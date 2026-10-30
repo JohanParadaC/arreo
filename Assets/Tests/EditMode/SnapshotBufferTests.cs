@@ -109,6 +109,20 @@ namespace Arreo.Tests.EditMode
         }
 
         [Test]
+        public void Clear_ForgetsEverySnapshot_SoTheNextOneIsNotBlendedWithOldOnes()
+        {
+            // A restocked herd jumps back to its start: blending to there would slide every cow across the map.
+            SnapshotBuffer buffer = CreateBuffer();
+
+            buffer.Clear();
+            buffer.Add(0.5f, new[] { new Vector3(0f, 0f, 50f) }, new[] { 0f });
+            buffer.Sample(1.05f, _positions, _yaws);
+
+            Assert.That(buffer.Count, Is.EqualTo(1));
+            Assert.That(_positions[0].z, Is.EqualTo(50f).Within(Tolerance));
+        }
+
+        [Test]
         public void Empty_SampleReturnsFalse()
         {
             Assert.That(new SnapshotBuffer(1f).Sample(1f, _positions, _yaws), Is.False);

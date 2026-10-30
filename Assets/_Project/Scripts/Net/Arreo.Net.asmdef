@@ -7,6 +7,7 @@
         "Arreo.Player",
         "Arreo.Herd",
         "Arreo.Rope",
+        "Arreo.Economy",
         "FishNet.Runtime"
     ],
     "includePlatforms": [],

@@ -57,6 +57,9 @@ namespace Arreo.Net
                 _frames.RemoveAt(0);
         }
 
+        /// <summary>Forgets every snapshot: the next one is not blended with the herd as it was (after a restock).</summary>
+        public void Clear() => _frames.Clear();
+
         public bool Sample(float time, List<Vector3> positions, List<float> yaws)
         {
             positions.Clear();

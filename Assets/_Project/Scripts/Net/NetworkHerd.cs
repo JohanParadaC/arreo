@@ -11,7 +11,8 @@ namespace Arreo.Net
     /// The herd on the network. The host simulates it (as offline) and sends every cow's position
     /// and heading, compressed, about 10 times a second; clients show kinematic copies interpolated
     /// a little in the past. The host keeps a short history so a client's lasso throw can be
-    /// checked against where the herd was when that client saw it.
+    /// checked against where the herd was when that client saw it. Every snapshot also says
+    /// which cows are still in the herd, so a cow the host sold vanishes on every machine.
     /// </summary>
     public sealed class NetworkHerd : NetworkBehaviour, ILassoTargetDirectory
     {
@@ -27,6 +28,7 @@ namespace Arreo.Net
 
         private readonly List<Vector3> _positions = new List<Vector3>();
         private readonly List<float> _yaws = new List<float>();
+        private readonly List<bool> _present = new List<bool>();
         private readonly List<LassoTarget> _targets = new List<LassoTarget>();
         private readonly List<Vector3> _headOffsets = new List<Vector3>();
         private readonly List<RiderSample> _riders = new List<RiderSample>();
@@ -34,6 +36,11 @@ namespace Arreo.Net
         private ServerTimeEstimator _clock;
         private PlaybackClock _playback;
         private float _nextSend;
+        // Host: goes up with every restock. Clients: the generation of the snapshots they're showing.
+        private byte _generation;
+
+        // A sold cow keeps its id, but no throw can land on it.
+        private static readonly Vector3 Unreachable = new Vector3(1e6f, 0f, 1e6f);
 
         /// <summary>The herd on this machine (at most one per scene).</summary>
         public static NetworkHerd Instance { get; private set; }
@@ -94,7 +101,7 @@ namespace Arreo.Net
                 _nextSend = Mathf.Max(_nextSend + 1f / _sendRate, Time.time);
                 // Stamped with the physics step the positions come from, not the render frame.
                 float stamp = Time.fixedTime;
-                byte[] data = HerdSnapshotCodec.Encode(_herd.Positions, _herd.Yaws);
+                byte[] data = HerdSnapshotCodec.Encode(_herd.Positions, _herd.Yaws, _herd.Present, _generation);
                 LastSnapshotBytes = data.Length;
                 _buffer.Add(stamp, _herd.Positions, _herd.Yaws);
                 ObserversSnapshot(data, stamp);
@@ -112,14 +119,44 @@ namespace Arreo.Net
         {
             LastSnapshotBytes = data.Length;
             SnapshotsReceived++;
-            HerdSnapshotCodec.Decode(data, _positions, _yaws);
+            byte generation = HerdSnapshotCodec.Decode(data, _positions, _yaws, _present);
             if (_herd.Count == 0)
             {
                 _herd.SpawnPuppets(_positions.Count);
                 CacheTargets();
             }
             _clock.Observe(serverTime, Time.time);
+            // Unreliable channel: a packet older than one already here (maybe from before a restock) is dropped whole.
+            if (_buffer.Count > 0 && serverTime <= _buffer.NewestTime)
+                return;
+            // A restocked herd starts over at its spawn: don't blend the old herd into it.
+            if (generation != _generation)
+            {
+                _generation = generation;
+                _buffer.Clear();
+            }
+            for (int i = 0; i < _present.Count && i < _herd.Count; i++)
+                _herd.SetPresent(i, _present[i]);
             _buffer.Add(serverTime, _positions, _yaws);
+        }
+
+        /// <summary>Host: these cows leave the herd for good (D29); every machine stops showing them.</summary>
+        [Server]
+        public void ServerRemove(IReadOnlyList<int> cowIds)
+        {
+            foreach (int id in cowIds)
+                _herd.Remove(id);
+            _nextSend = Time.time;
+        }
+
+        /// <summary>Host (prototype debug): every cow back where the herd started, sold ones included.</summary>
+        [Server]
+        public void ServerRestock()
+        {
+            _herd.Restock();
+            _generation++;
+            _buffer.Clear();
+            _nextSend = Time.time;
         }
 
         /// <summary>This machine's copy of a lassoable cow, by network id (for drawing a rope to its head).</summary>
@@ -132,21 +169,23 @@ namespace Arreo.Net
         public void GetCurrentHeads(List<Vector3> heads)
         {
             heads.Clear();
-            foreach (LassoTarget target in _targets)
-                heads.Add(target.HeadPosition);
+            for (int i = 0; i < _targets.Count; i++)
+                heads.Add(_herd.Present[i] ? _targets[i].HeadPosition : Unreachable);
         }
 
         public bool TryGetHeadAt(int targetId, float secondsAgo, out Vector3 head)
         {
             head = Vector3.zero;
-            if (targetId < 0 || targetId >= _targets.Count || !_buffer.Sample(Time.time - secondsAgo, _positions, _yaws)
+            if (targetId < 0 || targetId >= _targets.Count || !_herd.Present[targetId]
+                || !_buffer.Sample(Time.time - secondsAgo, _positions, _yaws)
                 || targetId >= _positions.Count)
                 return false;
             head = _positions[targetId] + Quaternion.Euler(0f, _yaws[targetId], 0f) * _headOffsets[targetId];
             return true;
         }
 
-        public LassoTarget GetTarget(int targetId) => TryGetLocalTarget(targetId, out LassoTarget target) ? target : null;
+        public LassoTarget GetTarget(int targetId) =>
+            TryGetLocalTarget(targetId, out LassoTarget target) && _herd.Present[targetId] ? target : null;
 
         private void CacheTargets()
         {
