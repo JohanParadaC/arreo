@@ -44,6 +44,42 @@ namespace Arreo.Tests.EditMode
         }
 
         [Test]
+        public void Sample_ShortlyAfterTheLast_WithExtrapolation_KeepsTheCowMoving()
+        {
+            // A lost snapshot: carry on at the last speed (10 m/s) instead of freezing.
+            var buffer = new SnapshotBuffer(keepSeconds: 1f, maxExtrapolation: 0.25f);
+            buffer.Add(1.0f, new[] { new Vector3(0f, 0f, 0f) }, new[] { 0f });
+            buffer.Add(1.1f, new[] { new Vector3(0f, 0f, 1f) }, new[] { 0f });
+
+            buffer.Sample(1.15f, _positions, _yaws);
+
+            Assert.That(_positions[0].z, Is.EqualTo(1.5f).Within(Tolerance));
+        }
+
+        [Test]
+        public void Sample_LongAfterTheLast_ExtrapolatesNoFurtherThanTheLimit()
+        {
+            var buffer = new SnapshotBuffer(1f, maxExtrapolation: 0.25f);
+            buffer.Add(1.0f, new[] { new Vector3(0f, 0f, 0f) }, new[] { 0f });
+            buffer.Add(1.1f, new[] { new Vector3(0f, 0f, 1f) }, new[] { 0f });
+
+            buffer.Sample(5f, _positions, _yaws);
+
+            Assert.That(_positions[0].z, Is.EqualTo(3.5f).Within(Tolerance));
+        }
+
+        [Test]
+        public void Sample_AfterTheOnlySnapshot_WithExtrapolation_HoldsIt()
+        {
+            var buffer = new SnapshotBuffer(1f, maxExtrapolation: 0.25f);
+            buffer.Add(1.0f, new[] { new Vector3(0f, 0f, 2f) }, new[] { 0f });
+
+            buffer.Sample(1.1f, _positions, _yaws);
+
+            Assert.That(_positions[0].z, Is.EqualTo(2f).Within(Tolerance));
+        }
+
+        [Test]
         public void Sample_BeforeTheFirstSnapshot_UsesTheFirst()
         {
             CreateBuffer().Sample(0.5f, _positions, _yaws);

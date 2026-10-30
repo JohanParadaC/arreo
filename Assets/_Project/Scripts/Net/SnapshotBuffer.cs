@@ -6,7 +6,8 @@ namespace Arreo.Net
     /// <summary>
     /// Timestamped herd snapshots. Clients sample it a little in the past to draw the herd
     /// smoothly between snapshots; the host samples it in the past to see the herd the way a
-    /// lagging client saw it (lag compensation). Never extrapolates past the newest snapshot.
+    /// lagging client saw it (lag compensation). Past the newest snapshot it holds it, or, if allowed,
+    /// carries the last motion on for a short while (a lost packet shouldn't freeze the herd).
     /// </summary>
     public sealed class SnapshotBuffer
     {
@@ -26,8 +27,14 @@ namespace Arreo.Net
 
         private readonly List<Frame> _frames = new List<Frame>();
         private readonly float _keepSeconds;
+        private readonly float _maxExtrapolation;
 
-        public SnapshotBuffer(float keepSeconds) => _keepSeconds = keepSeconds;
+        /// <param name="maxExtrapolation">Seconds past the newest snapshot it may guess ahead (0 = never).</param>
+        public SnapshotBuffer(float keepSeconds, float maxExtrapolation = 0f)
+        {
+            _keepSeconds = keepSeconds;
+            _maxExtrapolation = maxExtrapolation;
+        }
 
         public float OldestTime => _frames.Count > 0 ? _frames[0].Time : 0f;
         public float NewestTime => _frames.Count > 0 ? _frames[_frames.Count - 1].Time : 0f;
@@ -64,7 +71,17 @@ namespace Arreo.Net
             }
             if (time >= NewestTime)
             {
-                Copy(_frames[_frames.Count - 1], positions, yaws);
+                Frame last = _frames[_frames.Count - 1];
+                Copy(last, positions, yaws);
+                float ahead = Mathf.Min(time - last.Time, _maxExtrapolation);
+                if (ahead > 0f)
+                {
+                    Frame before = _frames[_frames.Count - 2];
+                    float scale = ahead / (last.Time - before.Time);
+                    int moving = Mathf.Min(before.Positions.Length, positions.Count);
+                    for (int i = 0; i < moving; i++)
+                        positions[i] += (last.Positions[i] - before.Positions[i]) * scale;
+                }
                 return true;
             }
 
