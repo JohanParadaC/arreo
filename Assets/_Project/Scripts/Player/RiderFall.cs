@@ -50,6 +50,19 @@ namespace Arreo.Player
         /// <summary>0 to 1 while remounting: from where the rider got up back to the saddle.</summary>
         public float RemountProgress => State == RiderState.Remounting ? Mathf.Clamp01(_stateTime / _remountSeconds) : 0f;
 
+        /// <summary>
+        /// Throws a mounted rider off without checking tension: the host already decided the fall
+        /// and every machine plays it (week 6).
+        /// </summary>
+        public bool FallNow()
+        {
+            if (State != RiderState.Mounted)
+                return false;
+            State = RiderState.Fallen;
+            _stateTime = 0f;
+            return true;
+        }
+
         /// <param name="snapTension">Tension the rope snapped at (N).</param>
         /// <param name="pullDirection">Direction the rope was pulling the rider (toward the caught end).</param>
         /// <param name="launchVelocity">Velocity (m/s) to throw the rider with, if they fall.</param>

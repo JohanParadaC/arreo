@@ -163,5 +163,39 @@ namespace Arreo.Tests.EditMode
 
             Assert.That(velocity, Is.EqualTo(Vector3.zero));
         }
+
+        [Test]
+        public void SeveralRiders_TheNearOneScaresLikeItWouldAlone()
+        {
+            var positions = new[] { Vector3.zero };
+            var velocities = new[] { Vector3.zero };
+            var near = new Vector3(0f, 0f, -5f);
+            var riders = new[] { new RiderSample(new Vector3(300f, 0f, 300f), 4f), new RiderSample(near, 4f) };
+
+            Vector3 withBoth = CreateSteering().DesiredVelocity(0, positions, velocities, riders);
+            Vector3 alone = CreateSteering().DesiredVelocity(0, positions, velocities, near, 4f);
+
+            Assert.That(Vector3.Distance(withBoth, alone), Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void TwoRidersOnOppositeSides_SqueezeTheCowBetweenThem()
+        {
+            var riders = new[] { new RiderSample(new Vector3(-5f, 0f, 0f), 4f), new RiderSample(new Vector3(5f, 0f, -5f), 4f) };
+
+            Vector3 velocity = CreateSteering().DesiredVelocity(0, new[] { Vector3.zero }, new[] { Vector3.zero }, riders);
+
+            // Pushed away from both: the left rider pushes +x, the right-and-behind one pushes -x and +z.
+            Assert.That(velocity.z, Is.GreaterThan(0f));
+            Assert.That(Mathf.Abs(velocity.x), Is.LessThan(Mathf.Abs(velocity.z)));
+        }
+
+        [Test]
+        public void NoRiders_LeavesTheCowCalm()
+        {
+            Vector3 velocity = CreateSteering().DesiredVelocity(0, new[] { Vector3.zero }, new[] { Vector3.zero }, new RiderSample[0]);
+
+            Assert.That(velocity, Is.EqualTo(Vector3.zero));
+        }
     }
 }

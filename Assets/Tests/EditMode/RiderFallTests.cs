@@ -106,5 +106,15 @@ namespace Arreo.Tests.EditMode
             Assert.That(fall.State, Is.EqualTo(RiderState.Mounted));
             Assert.That(fall.HasControl, Is.True);
         }
+
+        [Test]
+        public void FallNow_ThrowsAMountedRiderOffWithoutATensionCheck()
+        {
+            var fall = CreateFall();
+
+            Assert.That(fall.FallNow(), Is.True);
+            Assert.That(fall.State, Is.EqualTo(RiderState.Fallen));
+            Assert.That(fall.FallNow(), Is.False, "already down");
+        }
     }
 }

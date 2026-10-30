@@ -19,6 +19,8 @@ namespace Arreo.Herd
         private readonly float _panicSpeed;
         private readonly RiderFear _fear;
         private readonly float _flightZoneSpeed;
+        // Reused so the single-rider overload doesn't allocate every call.
+        private readonly RiderSample[] _singleRider = new RiderSample[1];
 
         /// <param name="separationStrength">m/s of push from a neighbor touching this cow.</param>
         /// <param name="alignmentWeight">Fraction of the neighbors' average velocity this cow copies.</param>
@@ -42,19 +44,37 @@ namespace Arreo.Herd
         public Vector3 DesiredVelocity(int self, IReadOnlyList<Vector3> positions, IReadOnlyList<Vector3> velocities,
             Vector3 riderPosition, float riderSpeed)
         {
+            _singleRider[0] = new RiderSample(riderPosition, riderSpeed);
+            return DesiredVelocity(self, positions, velocities, _singleRider);
+        }
+
+        /// <summary>
+        /// Every rider pushes the cow away (D73: everyone drives the same herd); the most
+        /// frightening one decides how panicked it gets.
+        /// </summary>
+        public Vector3 DesiredVelocity(int self, IReadOnlyList<Vector3> positions, IReadOnlyList<Vector3> velocities,
+            IReadOnlyList<RiderSample> riders)
+        {
             Vector3 position = positions[self];
-            float distance = BoidRules.Flatten(position - riderPosition).magnitude;
-            float fear = _fear.Fear(distance, riderSpeed);
-            float panic = _fear.Panic(fear, riderSpeed);
+            Vector3 flee = Vector3.zero;
+            float panic = 0f;
+            for (int i = 0; i < riders.Count; i++)
+            {
+                RiderSample rider = riders[i];
+                float distance = BoidRules.Flatten(position - rider.Position).magnitude;
+                float fear = _fear.Fear(distance, rider.Speed);
+                panic = Mathf.Max(panic, _fear.Panic(fear, rider.Speed));
+                // The flight zone only sets a minimum walking pace; it adds no panic.
+                float fleeSpeed = Mathf.Max(fear * _fleeSpeed, _fear.InFlightZone(distance) ? _flightZoneSpeed : 0f);
+                flee += RiderFear.FleeDirection(position, rider.Position) * fleeSpeed;
+            }
             float calm = 1f - panic;
-            // The flight zone only sets a minimum walking pace; it adds no panic.
-            float fleeSpeed = Mathf.Max(fear * _fleeSpeed, _fear.InFlightZone(distance) ? _flightZoneSpeed : 0f);
 
             Vector3 velocity =
                 BoidRules.Separation(self, positions, _separationRadius) * (_separationStrength * (1f + panic))
                 + BoidRules.Alignment(self, positions, velocities, _neighborRadius) * (_alignmentWeight * calm)
                 + BoidRules.Cohesion(self, positions, _neighborRadius) * (_cohesionStrength * calm)
-                + RiderFear.FleeDirection(position, riderPosition) * fleeSpeed;
+                + flee;
 
             return Vector3.ClampMagnitude(velocity, Mathf.Lerp(_fleeSpeed, _panicSpeed, panic));
         }
