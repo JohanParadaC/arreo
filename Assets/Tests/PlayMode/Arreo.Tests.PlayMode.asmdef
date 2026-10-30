@@ -11,6 +11,7 @@
         "Arreo.Player",
         "Unity.InputSystem",
         "Arreo.Net",
+        "Arreo.Economy",
         "FishNet.Runtime",
         "Unity.Cinemachine",
         "Arreo.Prototype"

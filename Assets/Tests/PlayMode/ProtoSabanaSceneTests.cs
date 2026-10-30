@@ -184,6 +184,76 @@ namespace Arreo.Tests.PlayMode
             Assert.That(_errors, Is.Empty, "Console errors or warnings while hosting:\n" + string.Join("\n", _errors));
         }
 
+        [UnityTest]
+        public IEnumerator Hosting_SellingAtTheFair_PaysTheHatoAndTakesTheCowsOut_AndRRestocks()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                Arreo.Prototype.ProtoFair fair = Arreo.Prototype.ProtoFair.Instance;
+                NetworkEconomy economy = NetworkEconomy.Instance;
+                Assert.That(fair, Is.Not.Null, "the fair is not a spawned network object");
+                Assert.That(economy, Is.Not.Null, "the economy is not a spawned network object");
+                Assert.That(economy.HatoBalance, Is.EqualTo(economy.Settings.StartingMoney));
+                ActiveHerd herd = NetworkHerd.Instance.Herd;
+                int total = herd.Count;
+                long before = economy.HatoBalance;
+
+                const int sold = 4;
+                PutCowsInTheFairPen(herd, sold);
+                MoveLocalRiderTo(fair.SalePoint);
+                yield return new WaitForSeconds(0.5f);
+                Assert.That(fair.InPen, Is.EqualTo(sold), "the host does not count the cows in the fair pen");
+                Assert.That(fair.LocalRiderAtSalePoint, Is.True);
+
+                fair.RequestSale();
+                yield return new WaitForSeconds(0.5f);
+
+                Assert.That(economy.HatoBalance, Is.EqualTo(before + sold * economy.Settings.PricePerHead), "the sale did not pay the hato");
+                Assert.That(herd.PresentCount, Is.EqualTo(total - sold), "the sold cows are still in the herd");
+                for (int i = 0; i < sold; i++)
+                    Assert.That(herd.Cows[i].gameObject.activeSelf, Is.False, $"sold cow {i} is still visible");
+                Assert.That(fair.InPen, Is.EqualTo(0));
+                Assert.That(Arreo.Prototype.NetworkWorld.Instance.Total, Is.EqualTo(total - sold), "the corral counter still counts sold cows");
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.R));
+                yield return null;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return new WaitForSeconds(0.3f);
+                Assert.That(herd.PresentCount, Is.EqualTo(total), "R did not restock the herd");
+                Assert.That(Arreo.Prototype.NetworkWorld.Instance.Total, Is.EqualTo(total));
+                Assert.That(economy.HatoBalance, Is.EqualTo(before + sold * economy.Settings.PricePerHead), "restocking must not touch the money");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+            Assert.That(_errors, Is.Empty, "Console errors or warnings while selling:\n" + string.Join("\n", _errors));
+        }
+
+        /// <summary>Host: puts the first <paramref name="count"/> cows standing in the middle of the fair pen.</summary>
+        internal static void PutCowsInTheFairPen(ActiveHerd herd, int count)
+        {
+            Vector3 center = GameObject.Find("FairPen").transform.position;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 position = center + new Vector3((i % 2) * 3f - 1.5f, 0.05f, (i / 2) * 3f - 3f);
+                Rigidbody cow = herd.Cows[i];
+                cow.transform.position = position;
+                cow.position = position;
+                cow.linearVelocity = Vector3.zero;
+            }
+        }
+
+        private static void MoveLocalRiderTo(Vector3 position)
+        {
+            Rigidbody body = NetworkRider.Local.Body;
+            body.linearVelocity = Vector3.zero;
+            body.position = position;
+            NetworkRider.Local.transform.position = position;
+        }
+
         private void HoldAim(bool held)
         {
             var state = new MouseState();
