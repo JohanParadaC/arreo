@@ -7,7 +7,7 @@ Documentación completa (visión, decisiones, arquitectura, roadmap): https://cl
 ## Estado actual
 
 - Fantasía: mezcla, caos en el arreo y calma en el hato.
-- Fase: prototipo (semanas 1–4 hechas; semana 5: red). Ver el roadmap antes de proponer trabajo fuera de la semana en curso.
+- Fase: prototipo (semanas 1–6 hechas: la semana 5 puso los caballos en red y la 6 la manada, la soga, la barajustada, la puerta y el corral). Ver el roadmap antes de proponer trabajo fuera de la semana en curso.
 - Co-op tipo Stardew Valley (D73): todos comparten el mismo hato, pero cada jugador es independiente.
 - Desarrollador: Johan, solo, ~15 h por semana.
 
@@ -52,7 +52,7 @@ Assets/_Project/Scripts/
 Assets/Tests/EditMode/  Assets/Tests/PlayMode/
 ```
 
-- `Assets/_Project/Prototype/`: escenas y scripts **desechables** de las semanas 2–4 (por ejemplo `Proto_Sabana`, que se regenera desde el menú Arreo → Prototype). No construir sobre ellos.
+- `Assets/_Project/Prototype/`: escenas y scripts **desechables** de las semanas 2–6 (por ejemplo `Proto_Sabana`, que se regenera desde el menú Arreo → Prototype). No construir sobre ellos.
 - `Assets/_Project/Data/`: ScriptableObjects con datos de diseño (por ejemplo `Horse/HorseSettings_Proto.asset`).
 - Una assembly definition por carpeta. Namespace `Arreo.<Carpeta>`, por ejemplo `Arreo.Herd`.
 - Las dependencias van de los sistemas hacia `Core`, nunca al revés.
@@ -77,14 +77,14 @@ Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResult
 
 - **CI activo:** `.github/workflows/tests.yml` corre las pruebas EditMode con GameCI en cada push (y a mano con `workflow_dispatch`). Los resultados salen como check "EditMode Test Results" en GitHub. Secrets: `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`.
 - No marcar una tarea como terminada si alguna prueba falla, en local o en el CI.
-- **Red:** `ProtoSabanaSceneTests` (PlayMode) crea una partida real con FishNet en la escena. Dos jugadores a mano: Multiplayer Play Mode (Window > Multiplayer > Multiplayer Play Mode, activar Player 2). Medir fluidez con latencia: menú Arreo > Prototype > Build Network Test Player (development build: el simulador de latencia de FishNet no existe en builds normales) y correr dos copias con `-arreoNet host|client -arreoMeasure <s> -arreoLatency <ms por trayecto> -arreoLoss <0-1>`.
+- **Red:** `ProtoSabanaSceneTests` (PlayMode) crea una partida real con FishNet en la escena. Dos jugadores a mano: Multiplayer Play Mode (Window > Multiplayer > Multiplayer Play Mode, activar Player 2). Medir fluidez con latencia: menú Arreo > Prototype > Build Network Test Player (development build: el simulador de latencia de FishNet no existe en builds normales) y correr dos copias con `-arreoNet host|client -arreoMeasure <s> -arreoLatency <ms por trayecto> -arreoLoss <0-1> -arreoHerd <reses>`. Cada copia escribe un informe (fluidez del caballo remoto y de cada res, bytes recibidos por segundo, la soga y la caída del cliente, warnings). Con `-arreoLatency 75` FishNet mide unos 215 ms de ping (150 simulados más su propio tick).
 
 ## Cómo trabajar en este repo
 
 - Antes de cambiar algo grande, revisar el registro de decisiones. Una decisión sellada (D01–D70) no se cambia en silencio: si hay que tocarla, proponer el cambio y anotarlo con fecha.
 - Trabajar dentro de la semana en curso del roadmap; lo que no toca, va a una lista de ideas.
 - Commits pequeños, uno por cambio con sentido.
-- Si algo del prototipo es desechable (semanas 2–4), decirlo explícitamente en vez de pulirlo.
+- Si algo del prototipo es desechable (semanas 2–6), decirlo explícitamente en vez de pulirlo.
 
 ## Glosario llanero
 
