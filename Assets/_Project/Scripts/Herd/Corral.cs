@@ -15,6 +15,12 @@ namespace Arreo.Herd
 
         public int CountInside(IReadOnlyList<Vector3> positions) => _area.Count(positions);
 
+        /// <summary>Cows still in the herd that are inside (a sold cow keeps its index but doesn't count).</summary>
+        public int CountInside(IReadOnlyList<Vector3> positions, IReadOnlyList<bool> present) => _area.CountPresent(positions, present);
+
+        public int CollectInside(IReadOnlyList<Vector3> positions, IReadOnlyList<bool> present, List<int> inside) =>
+            _area.CollectInside(positions, present, inside);
+
         private void OnDrawGizmos()
         {
             Gizmos.color = Color.yellow;

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Arreo.Herd;
 using NUnit.Framework;
 using UnityEngine;
@@ -46,6 +47,41 @@ namespace Arreo.Tests.EditMode
             };
 
             Assert.That(CreateArea().Count(points), Is.EqualTo(2));
+        }
+
+        // The fair pen: only cows still in the herd count; a sold one keeps its spot in the list (D29).
+        [Test]
+        public void CollectInside_ListsOnlyCowsStillInTheHerd()
+        {
+            var points = new[]
+            {
+                new Vector3(100f, 0f, 50f), new Vector3(95f, 0f, 48f), new Vector3(0f, 0f, 0f), new Vector3(104f, 0f, 52f),
+            };
+            var present = new[] { true, false, true, true };
+            var inside = new List<int>();
+
+            int count = CreateArea().CollectInside(points, present, inside);
+
+            Assert.That(count, Is.EqualTo(2));
+            Assert.That(inside, Is.EqualTo(new[] { 0, 3 }));
+        }
+
+        [Test]
+        public void CollectInside_ReplacesThePreviousList()
+        {
+            var inside = new List<int> { 7, 8, 9 };
+
+            CreateArea().CollectInside(new[] { new Vector3(0f, 0f, 0f) }, new[] { true }, inside);
+
+            Assert.That(inside, Is.Empty);
+        }
+
+        [Test]
+        public void CountPresent_SkipsSoldCows()
+        {
+            var points = new[] { new Vector3(100f, 0f, 50f), new Vector3(101f, 0f, 50f), new Vector3(102f, 0f, 50f) };
+
+            Assert.That(CreateArea().CountPresent(points, new[] { false, true, false }), Is.EqualTo(1));
         }
     }
 }

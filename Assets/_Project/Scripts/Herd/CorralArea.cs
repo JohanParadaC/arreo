@@ -32,5 +32,25 @@ namespace Arreo.Herd
                     count++;
             return count;
         }
+
+        /// <summary>Like <see cref="Count"/>, skipping points whose <paramref name="present"/> flag is off (sold cows).</summary>
+        public int CountPresent(IReadOnlyList<Vector3> points, IReadOnlyList<bool> present)
+        {
+            int count = 0;
+            for (int i = 0; i < points.Count; i++)
+                if (present[i] && Contains(points[i]))
+                    count++;
+            return count;
+        }
+
+        /// <summary>Fills <paramref name="inside"/> with the indices of present points inside, and returns how many.</summary>
+        public int CollectInside(IReadOnlyList<Vector3> points, IReadOnlyList<bool> present, List<int> inside)
+        {
+            inside.Clear();
+            for (int i = 0; i < points.Count; i++)
+                if (present[i] && Contains(points[i]))
+                    inside.Add(i);
+            return inside.Count;
+        }
     }
 }
