@@ -27,9 +27,10 @@ namespace Arreo.Prototype
         [SerializeField] private CinemachineDeoccluder[] _deoccluders;
         [SerializeField] private CinemachineTargetGroup _group;
         [SerializeField] private Transform _riderTarget;
-        [SerializeField] private RopeSimulation _rope;
         [SerializeField] private LassoInput _lasso;
         [SerializeField] private RiderMount _mount;
+
+        private IRopeSnapshotSource _rope;
 
         private AimBlend _aim;
         private float _aimBlendSeconds = -1f;
@@ -49,7 +50,6 @@ namespace Arreo.Prototype
             if (_ropeOrbit == null) missing.Add(nameof(_ropeOrbit));
             if (_ropeFraming == null) missing.Add(nameof(_ropeFraming));
             if (_group == null) missing.Add(nameof(_group));
-            if (_rope == null) missing.Add(nameof(_rope));
             if (missing.Count == 0)
                 return;
 
@@ -61,11 +61,12 @@ namespace Arreo.Prototype
         /// Follows this machine's own rider once it spawns: both cameras track it and the rope
         /// framing group starts from it. Other players' riders are never followed.
         /// </summary>
-        public void Bind(Transform riderTarget, LassoInput lasso, RiderMount mount)
+        public void Bind(Transform riderTarget, LassoInput lasso, RiderMount mount, IRopeSnapshotSource rope)
         {
             _riderTarget = riderTarget;
             _lasso = lasso;
             _mount = mount;
+            _rope = rope;
             _riderCamera.Target.TrackingTarget = riderTarget;
             _ropeCamera.Target.TrackingTarget = riderTarget;
             _group.AddMember(riderTarget, 1f, 1.5f);
@@ -101,13 +102,13 @@ namespace Arreo.Prototype
 
         private void ApplyRopeCamera()
         {
-            bool holding = _rope.State == RopeState.Lassoed || _rope.State == RopeState.Taut;
-            LassoTarget caught = holding ? _rope.Caught : null;
-            bool frameCatch = caught != null && !_lasso.IsAiming && _mount.HasControl;
+            // On a client the caught head is that machine's own copy of the cow.
+            Transform caughtHead = _rope.IsConfigured ? _rope.Snapshot.CaughtHead : null;
+            bool frameCatch = caughtHead != null && !_lasso.IsAiming && _mount.HasControl;
 
-            FrameHead(frameCatch ? caught.Head : null);
+            FrameHead(frameCatch ? caughtHead : null);
             if (frameCatch)
-                SwingBehindRider(caught.HeadPosition);
+                SwingBehindRider(caughtHead.position);
 
             _ropeOrbit.Radius = _settings.RopeDistance;
             InputAxis pitch = _ropeOrbit.VerticalAxis;

@@ -1,12 +1,12 @@
 using Arreo.Herd;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (week 4 prototype): debug key (B) that cracks thunder near the herd: a light
-    /// flash, a generated rumble and a barajustada (stampede) of the whole herd.
+    /// DISPOSABLE (weeks 4-6 prototype): thunder near the herd, a light flash and a generated
+    /// rumble. Any player asks for it with B; the host starts the barajustada and every machine
+    /// plays the flash (<see cref="NetworkWorld"/>).
     /// </summary>
     public sealed class ProtoThunder : MonoBehaviour
     {
@@ -29,24 +29,27 @@ namespace Arreo.Prototype
 
         private void Update()
         {
-            if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame && _herd.Count > 0)
-                Strike();
-
             _flashTime += Time.deltaTime;
             // Two quick flashes, then back to normal.
             bool lit = _flashTime < 0.08f || (_flashTime > 0.16f && _flashTime < 0.26f);
             _sun.intensity = lit ? _baseIntensity * 6f : _baseIntensity;
         }
 
-        private void Strike()
+        /// <summary>Host: where the thunder strikes, a little off the herd's center so the herd bolts one way.</summary>
+        public Vector3 PickStrikePoint()
         {
             Vector3 center = Vector3.zero;
             foreach (Vector3 position in _herd.Positions)
                 center += position;
-            center /= _herd.Count;
+            center /= Mathf.Max(1, _herd.Count);
 
             Vector2 offset = Random.insideUnitCircle.normalized * _strikeOffset;
-            _herd.TriggerStampede(center + new Vector3(offset.x, 0f, offset.y));
+            return center + new Vector3(offset.x, 0f, offset.y);
+        }
+
+        /// <summary>Flash and rumble on this machine (the host tells every machine to play it).</summary>
+        public void PlayStrike()
+        {
             _flashTime = 0f;
             _audio.Play();
         }

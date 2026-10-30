@@ -85,22 +85,24 @@ namespace Arreo.Prototype.Editor
             CinemachineCamera riderCamera = CreateCamera(cameraSettings);
             ActiveHerd herd = CreateHerd(frictionless);
             Corral corral = CreateCorral(out ProtoGate gate);
-            RopeSimulation rope = CreateRope(out ProtoRopeLink ropeLink);
-            ProtoCameraRig cameraRig = CreateRopeCamera(riderCamera, rope, cameraSettings);
+            ProtoCameraRig cameraRig = CreateRopeCamera(riderCamera, cameraSettings);
 
             var thunder = new GameObject("ProtoThunder").AddComponent<ProtoThunder>();
             SetReference(thunder, "_herd", herd);
             SetReference(thunder, "_sun", sun);
 
-            var drive = new GameObject("ProtoDrive").AddComponent<ProtoDrive>();
-            SetReference(drive, "_herd", herd);
-            SetReference(drive, "_corral", corral);
+            // Stampede, gate and corral count: any player asks, the host applies, everyone sees it.
+            var worldObject = new GameObject("NetworkWorld");
+            worldObject.AddComponent<NetworkObject>();
+            var world = worldObject.AddComponent<NetworkWorld>();
+            SetReference(world, "_herd", herd);
+            SetReference(world, "_corral", corral);
+            SetReference(world, "_gate", gate);
+            SetReference(world, "_thunder", thunder);
+            SetReference(world, "_interact", FindAction("Player/Interact"));
 
             var hud = new GameObject("ProtoHud").AddComponent<ProtoHud>();
-            SetReference(hud, "_drive", drive);
-            SetReference(hud, "_gate", gate);
-            SetReference(hud, "_rope", rope);
-            SetReference(hud, "_herd", herd);
+            SetReference(hud, "_world", world);
 
             var benchmark = new GameObject("ProtoBenchmark").AddComponent<ProtoBenchmark>();
             SetReference(benchmark, "_herd", herd);
@@ -110,18 +112,28 @@ namespace Arreo.Prototype.Editor
             SetReference(binder, "_cameraRig", cameraRig);
             SetReference(binder, "_hud", hud);
             SetReference(binder, "_benchmark", benchmark);
-            SetReference(binder, "_rope", rope);
-            SetReference(binder, "_ropeLink", ropeLink);
-            SetReference(binder, "_herd", herd);
-            SetReference(binder, "_drive", drive);
-            SetReference(binder, "_gate", gate);
 
             var bot = new GameObject("ProtoNetBot").AddComponent<ProtoNetBot>();
             SetReference(bot, "_networkManager", networkManager);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
+            AssignSceneIds(scene);
+            EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
             Debug.Log($"[ProtoSabanaBuilder] Saved {ScenePath}");
+        }
+
+        // Scene NetworkObjects (herd, world) need unique scene ids, which FishNet only makes from the
+        // inspector or its Reserialize menu; this is the same internal call, once the scene has its path.
+        private static void AssignSceneIds(Scene scene)
+        {
+            System.Reflection.MethodInfo create = typeof(NetworkObject).GetMethod("CreateSceneId",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            if (create == null)
+                throw new System.InvalidOperationException("FishNet's NetworkObject.CreateSceneId(Scene, bool, out int) was not found.");
+            var arguments = new object[] { scene, true, 0 };
+            create.Invoke(null, arguments);
+            Debug.Log($"[ProtoSabanaBuilder] Scene ids assigned to {arguments[2]} network objects");
         }
 
         [MenuItem("Arreo/Prototype/Build FPS Benchmark Player")]
@@ -245,6 +257,20 @@ namespace Arreo.Prototype.Editor
             SetReference(rider, "_mount", mount);
             SetReference(rider, "_cameraTarget", cameraTarget);
 
+            // Each player's lasso rides with their horse; only the host simulates it.
+            var rope = root.AddComponent<RopeSimulation>();
+            SetReference(rope, "_settings", LoadOrCreate<RopeSettings>(RopeSettingsPath));
+            SetReference(rope, "_saddleBody", root.GetComponent<Rigidbody>());
+            var networkRope = root.AddComponent<NetworkRope>();
+            SetReference(networkRope, "_rope", rope);
+            SetReference(networkRope, "_rider", rider);
+            SetReference(rider, "_rope", networkRope);
+            CreateRopeView(root.transform, networkRope);
+
+            // Off until NetworkRider knows whose horse this is: a remote copy never drives its body.
+            horse.enabled = false;
+            root.GetComponent<RiderInput>().enabled = false;
+
             string path = $"{GeneratedFolder}/Horse_Player.prefab";
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
@@ -351,7 +377,7 @@ namespace Arreo.Prototype.Editor
             return cinemachineCamera;
         }
 
-        private static ProtoCameraRig CreateRopeCamera(CinemachineCamera riderCamera, RopeSimulation rope, CameraSettings settings)
+        private static ProtoCameraRig CreateRopeCamera(CinemachineCamera riderCamera, CameraSettings settings)
         {
             // Rider plus the caught head; the rope camera looks at the pair and zooms to fit both.
             // The local rider is added to the group (and tracked) at runtime by ProtoCameraRig.Bind.
@@ -395,7 +421,6 @@ namespace Arreo.Prototype.Editor
             SetReference(rig, "_ropeCamera", ropeCamera);
             SetReference(rig, "_ropeOrbit", orbit);
             SetReference(rig, "_group", group);
-            SetReference(rig, "_rope", rope);
             return rig;
         }
 
@@ -451,7 +476,7 @@ namespace Arreo.Prototype.Editor
             return deoccluder;
         }
 
-        // The rope is a scene object and the rider a prefab: the binder hands the rope over at runtime.
+        // The lasso throws through the NetworkRope that NetworkRider binds at runtime (host or client).
         private static RiderMount AddRider(HorseController horse, out LassoInput lasso)
         {
             Rigidbody horseBody = horse.GetComponent<Rigidbody>();
@@ -474,7 +499,7 @@ namespace Arreo.Prototype.Editor
             return mount;
         }
 
-        // Cows only exist on the host this week: the binder spawns them once the host's rider is in.
+        // The host spawns and simulates the cows when its server starts; clients get puppets from snapshots.
         private static ActiveHerd CreateHerd(PhysicsMaterial frictionless)
         {
             var go = new GameObject("Herd");
@@ -483,6 +508,8 @@ namespace Arreo.Prototype.Editor
             SetReference(herd, "_settings", LoadOrCreate<HerdSettings>(HerdSettingsPath));
             SetReference(herd, "_cowPrefab", CreateCowPrefab(frictionless));
             SetValue(herd, "_spawnOnStart", false);
+            go.AddComponent<NetworkObject>();
+            SetReference(go.AddComponent<NetworkHerd>(), "_herd", herd);
             return herd;
         }
 
@@ -524,23 +551,16 @@ namespace Arreo.Prototype.Editor
             return prefab.GetComponent<Rigidbody>();
         }
 
-        private static RopeSimulation CreateRope(out ProtoRopeLink link)
+        // Every machine draws every rope from what its NetworkRope knows (the host's simulation or the sent state).
+        private static void CreateRopeView(Transform parent, NetworkRope source)
         {
-            // Simulation and drawing live on separate objects: from week 6 only the host simulates.
-            // The saddle (host's rider) is tied at runtime by the binder.
-            var rope = new GameObject("RopeSimulation").AddComponent<RopeSimulation>();
-            SetReference(rope, "_settings", LoadOrCreate<RopeSettings>(RopeSettingsPath));
-
             var material = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
             SaveAsset(material, $"{GeneratedFolder}/Rope.mat");
             var view = new GameObject("RopeView").AddComponent<RopeView>();
-            SetReference(view, "_rope", rope);
+            view.transform.SetParent(parent, false);
+            SetReference(view, "_source", source);
             SetReference(view, "_line", CreateLine(view.transform, "RopeLine", material, 0.045f));
             SetReference(view, "_loop", CreateLine(view.transform, "RopeLoop", material, 0.04f));
-
-            link = new GameObject("ProtoRopeLink").AddComponent<ProtoRopeLink>();
-            SetReference(link, "_rope", rope);
-            return rope;
         }
 
         private static NetworkManager CreateNetwork(NetworkObject playerPrefab)
@@ -628,7 +648,6 @@ namespace Arreo.Prototype.Editor
 
             gate = hinge.AddComponent<ProtoGate>();
             SetReference(gate, "_hinge", hingeBody);
-            SetReference(gate, "_interact", FindAction("Player/Interact"));
 
             return corral;
         }

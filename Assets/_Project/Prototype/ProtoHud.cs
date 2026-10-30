@@ -1,4 +1,3 @@
-using Arreo.Herd;
 using Arreo.Horse;
 using Arreo.Player;
 using Arreo.Rope;
@@ -14,24 +13,24 @@ namespace Arreo.Prototype
     public sealed class ProtoHud : MonoBehaviour
     {
         [SerializeField] private HorseController _horse;
-        [SerializeField] private ProtoDrive _drive;
-        [SerializeField] private ProtoGate _gate;
-        [SerializeField] private RopeSimulation _rope;
-        [SerializeField] private ActiveHerd _herd;
+        [SerializeField] private NetworkWorld _world;
         [SerializeField] private LassoInput _lasso;
         [SerializeField] private RiderMount _mount;
         [SerializeField] private RiderInput _riderInput;
+
+        private IRopeSnapshotSource _rope;
 
         private GUIStyle _style;
         private GUIStyle _banner;
 
         /// <summary>Points the HUD at this machine's rider once it spawns, and captures the cursor.</summary>
-        public void Bind(HorseController horse, LassoInput lasso, RiderMount mount, RiderInput riderInput)
+        public void Bind(HorseController horse, LassoInput lasso, RiderMount mount, RiderInput riderInput, IRopeSnapshotSource rope)
         {
             _horse = horse;
             _lasso = lasso;
             _mount = mount;
             _riderInput = riderInput;
+            _rope = rope;
             LockCursor(true);
         }
 
@@ -82,7 +81,8 @@ namespace Arreo.Prototype
             if (_rope == null || !_rope.IsConfigured)
                 return;
 
-            string state = _rope.State switch
+            RopeSnapshot rope = _rope.Snapshot;
+            string state = rope.State switch
             {
                 RopeState.Coiled => "enrollada",
                 RopeState.Throwing => "lanzando…",
@@ -92,14 +92,14 @@ namespace Arreo.Prototype
                 RopeState.Broken => "¡REVENTÓ!",
                 _ => "",
             };
-            float tension01 = _rope.Snapshot.Tension01;
+            float tension01 = rope.Tension01;
 
             GUI.Box(new Rect(10, 230, 300, 80), GUIContent.none);
-            GUI.Label(new Rect(20, 235, 280, 25), $"Soga: {state}  {_rope.Tension:0} N", _style);
+            GUI.Label(new Rect(20, 235, 280, 25), $"Soga: {state}  {tension01 * 100f:0} %", _style);
             GUI.color = Color.Lerp(Color.green, Color.red, tension01);
             GUI.DrawTexture(new Rect(20, 263, 280 * Mathf.Clamp01(tension01), 12), Texture2D.whiteTexture);
             GUI.color = new Color(1f, 0.3f, 0.1f);
-            GUI.DrawTexture(new Rect(20, 280, 280 * _rope.BreakProgress, 8), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(20, 280, 280 * rope.BreakProgress, 8), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(20, 288, 280, 20), "tensión · se revienta");
         }
@@ -115,9 +115,9 @@ namespace Arreo.Prototype
             }
 
             _banner ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            if (_herd != null && _herd.StampedeIntensity > 0f)
+            if (_world != null && _world.StampedeIntensity > 0f)
             {
-                GUI.color = new Color(1f, 0.85f, 0.2f, Mathf.Clamp01(_herd.StampedeIntensity * 2f));
+                GUI.color = new Color(1f, 0.85f, 0.2f, Mathf.Clamp01(_world.StampedeIntensity * 2f));
                 GUI.Label(new Rect(0f, 40f, Screen.width, 50f), "¡BARAJUSTADA!", _banner);
             }
             if (_mount != null && _mount.State != RiderState.Mounted)
@@ -131,20 +131,20 @@ namespace Arreo.Prototype
 
         private void DrawDrive()
         {
-            var drive = _drive != null ? _drive.Drive : null;
-            if (drive == null)
+            // The host counts the corral and runs the clock; every machine shows the same numbers.
+            if (_world == null || !_world.HasDrive)
                 return;
 
-            int minutes = (int)(drive.ElapsedSeconds / 60f);
-            float seconds = drive.ElapsedSeconds % 60f;
-            string clock = $"{minutes}:{seconds:00.0}";
+            int minutes = (int)(_world.Elapsed / 60f);
+            float seconds = _world.Elapsed % 60f;
+            string clock = $"{minutes}:{seconds:00}";
 
             GUI.Box(new Rect(10, 140, 300, 85), GUIContent.none);
-            GUI.Label(new Rect(20, 145, 280, 25), $"Reses en el corral: {drive.InCorral}/{drive.Total}", _style);
-            string status = drive.IsComplete ? $"¡Arreo completo en {clock}!" : drive.HasStarted ? $"Tiempo: {clock}" : "Tiempo: arranca al moverte";
+            GUI.Label(new Rect(20, 145, 280, 25), $"Reses en el corral: {_world.InCorral}/{_world.Total}", _style);
+            string status = _world.Complete ? $"¡Arreo completo en {clock}!" : _world.Started ? $"Tiempo: {clock}" : "Tiempo: arranca al moverse";
             GUI.Label(new Rect(20, 170, 280, 25), status, _style);
-            if (_gate != null && _gate.RiderInReach)
-                GUI.Label(new Rect(20, 197, 280, 25), $"E: {(_gate.IsOpen ? "cerrar" : "abrir")} la puerta");
+            if (_world.LocalRiderNearGate)
+                GUI.Label(new Rect(20, 197, 280, 25), $"E: {(_world.GateOpen ? "cerrar" : "abrir")} la puerta");
         }
     }
 }

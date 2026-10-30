@@ -1,25 +1,18 @@
-using Arreo.Herd;
 using Arreo.Net;
-using Arreo.Rope;
 using UnityEngine;
 
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (week 5 prototype): when this machine's own rider spawns, points the camera and
-    /// HUD at it. On the host it also ties the rope, herd, corral clock and gate to the host's
-    /// rider: those run only on the host until they're networked in week 6.
+    /// DISPOSABLE (weeks 5-6 prototype): when this machine's own rider spawns, points the camera,
+    /// HUD and benchmark at it and its rope. The herd, ropes, corral and gate are networked
+    /// (<see cref="NetworkHerd"/>, <see cref="NetworkRope"/>, <see cref="NetworkWorld"/>).
     /// </summary>
     public sealed class ProtoLocalRiderBinder : MonoBehaviour
     {
         [SerializeField] private ProtoCameraRig _cameraRig;
         [SerializeField] private ProtoHud _hud;
         [SerializeField] private ProtoBenchmark _benchmark;
-        [SerializeField] private RopeSimulation _rope;
-        [SerializeField] private ProtoRopeLink _ropeLink;
-        [SerializeField] private ActiveHerd _herd;
-        [SerializeField] private ProtoDrive _drive;
-        [SerializeField] private ProtoGate _gate;
 
         private void OnEnable()
         {
@@ -32,21 +25,9 @@ namespace Arreo.Prototype
 
         private void Bind(NetworkRider rider)
         {
-            _cameraRig.Bind(rider.CameraTarget, rider.Lasso, rider.Mount);
-            _hud.Bind(rider.Horse, rider.Lasso, rider.Mount, rider.Input);
+            _cameraRig.Bind(rider.CameraTarget, rider.Lasso, rider.Mount, rider.Rope);
+            _hud.Bind(rider.Horse, rider.Lasso, rider.Mount, rider.Input, rider.Rope);
             _benchmark.Bind(rider.Horse, rider.Input);
-
-            if (!rider.Role.RunsHostSystems)
-                return;
-
-            _rope.BindSaddle(rider.Body);
-            rider.Lasso.BindRope(_rope);
-            rider.Mount.BindRope(_rope);
-            _ropeLink.Bind(rider.Horse);
-            _herd.SetRider(rider.Body);
-            _herd.SpawnHerd();
-            _drive.Bind(rider.Horse);
-            _gate.Bind(rider.transform);
         }
     }
 }

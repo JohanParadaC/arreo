@@ -75,7 +75,7 @@ namespace Arreo.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator PlayingWhileAiming_LogsNoErrors()
+        public IEnumerator PlayingWhileAiming_LogsNoErrorsOrWarnings()
         {
             // We assert on the collected errors ourselves, with a readable list.
             LogAssert.ignoreFailingMessages = true;
@@ -84,7 +84,7 @@ namespace Arreo.Tests.PlayMode
             HoldAim(false);
             yield return new WaitForSeconds(0.5f);
 
-            Assert.That(_errors, Is.Empty, "Console errors while playing:\n" + string.Join("\n", _errors));
+            Assert.That(_errors, Is.Empty, "Console errors or warnings while playing:\n" + string.Join("\n", _errors));
         }
 
         [UnityTest]
@@ -152,7 +152,36 @@ namespace Arreo.Tests.PlayMode
             Assert.That(GameObject.Find("CM Rider Camera").GetComponent<CinemachineCamera>().Target.TrackingTarget,
                 Is.EqualTo(rider.CameraTarget), "the camera does not follow the local rider");
             Assert.That(Object.FindFirstObjectByType<ActiveHerd>().Count, Is.GreaterThan(0), "the host did not spawn the herd");
-            Assert.That(_errors, Is.Empty, "Console errors while hosting:\n" + string.Join("\n", _errors));
+            Assert.That(_errors, Is.Empty, "Console errors or warnings while hosting:\n" + string.Join("\n", _errors));
+        }
+
+        [UnityTest]
+        public IEnumerator Hosting_NetworksTheHerdRopeAndCorral_AndBStartsABarajustada()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            NetworkRider rider = NetworkRider.Local;
+            Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                Assert.That(NetworkHerd.Instance, Is.Not.Null, "the herd is not a spawned network object");
+                Assert.That(NetworkHerd.Instance.LastSnapshotBytes, Is.GreaterThan(0), "the host sent no herd snapshot");
+                Assert.That(rider.Rope, Is.Not.Null, "the player prefab has no networked rope");
+                Assert.That(rider.Rope.IsConfigured, Is.True, "the host's rope is not tied to its saddle");
+                Arreo.Prototype.NetworkWorld world = Arreo.Prototype.NetworkWorld.Instance;
+                Assert.That(world, Is.Not.Null, "the corral and gate are not a spawned network object");
+                Assert.That(world.Total, Is.EqualTo(NetworkHerd.Instance.Herd.Count), "the corral counter does not know the herd");
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.B));
+                yield return null;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return new WaitForSeconds(0.3f);
+                Assert.That(world.StampedeIntensity, Is.GreaterThan(0f), "B did not start a barajustada");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+            Assert.That(_errors, Is.Empty, "Console errors or warnings while hosting:\n" + string.Join("\n", _errors));
         }
 
         private void HoldAim(bool held)
@@ -165,7 +194,9 @@ namespace Arreo.Tests.PlayMode
 
         private void CollectErrors(string message, string stackTrace, LogType type)
         {
-            if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
+            // Warnings count too: a warning every frame (like setting the velocity of a kinematic
+            // body) hides real problems in the console just as well as an error.
+            if (type != LogType.Log)
                 _errors.Add($"{type}: {message}\n{stackTrace}");
         }
     }
