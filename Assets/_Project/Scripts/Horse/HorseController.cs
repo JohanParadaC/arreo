@@ -33,6 +33,18 @@ namespace Arreo.Horse
 
         public void SetIntent(HorseIntent intent) => _intent = intent;
 
+        /// <summary>Puts the horse standing at a place, facing <paramref name="yaw"/> (a loaded game). Its owner calls it.</summary>
+        public void Teleport(Vector3 position, float yaw)
+        {
+            Rigidbody body = _rigidbody != null ? _rigidbody : GetComponent<Rigidbody>();
+            Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
+            transform.SetPositionAndRotation(position, rotation);
+            body.position = position;
+            body.rotation = rotation;
+            body.linearVelocity = Vector3.zero;
+            _locomotion?.Stand(yaw);
+        }
+
         /// <summary>Velocity forced on the horse from outside (a rope dragging it), on top of its own.</summary>
         public void SetExternalVelocity(Vector3 velocity) => _externalVelocity = new Vector3(velocity.x, 0f, velocity.z);
 

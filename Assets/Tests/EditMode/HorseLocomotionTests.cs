@@ -24,6 +24,20 @@ namespace Arreo.Tests.EditMode
         }
 
         [Test]
+        public void Stand_StopsTheHorseFacingTheNewHeading_AndKeepsItsStamina()
+        {
+            HorseLocomotion locomotion = CreateLocomotion(heading: 10f);
+            Simulate(locomotion, Gallop, 3f);
+            float stamina = locomotion.Stamina.Normalized;
+
+            locomotion.Stand(heading: 450f);
+
+            Assert.That(locomotion.Speed, Is.EqualTo(0f));
+            Assert.That(locomotion.Heading, Is.EqualTo(90f).Within(Tolerance));
+            Assert.That(locomotion.Stamina.Normalized, Is.EqualTo(stamina).Within(Tolerance));
+        }
+
+        [Test]
         public void Intent_ClampsToValidRange()
         {
             var intent = new HorseIntent(throttle: 3f, steer: -2f, gallop: true);

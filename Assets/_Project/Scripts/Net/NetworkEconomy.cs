@@ -43,7 +43,16 @@ namespace Arreo.Net
         public override void OnStartServer()
         {
             base.OnStartServer();
-            _wallets = new Wallets(MoneyMode.Shared, _settings.StartingMoney);
+            OpenWallets(_settings.StartingMoney);
+        }
+
+        /// <summary>Host: the hato's money as a saved game had it.</summary>
+        [Server]
+        public void ServerLoadHato(long balance) => OpenWallets(balance);
+
+        private void OpenWallets(long hatoBalance)
+        {
+            _wallets = new Wallets(MoneyMode.Shared, hatoBalance);
             _wallets.Hato.Changed += wallet => _hatoBalance.Value = wallet.Balance;
             _hatoBalance.Value = _wallets.Hato.Balance;
         }

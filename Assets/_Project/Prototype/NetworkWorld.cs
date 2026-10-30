@@ -9,15 +9,16 @@ using UnityEngine.InputSystem;
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (weeks 6-7 prototype): the shared bits of Proto_Sabana. Any player can ask for a
-    /// barajustada (B), to work the corral gate (Interact, when near it) or, to repeat the drive
-    /// and sale, to restock the herd (R, debug); the host applies it and every machine sees the
-    /// same gate, the thunder and the corral count and clock.
+    /// DISPOSABLE (weeks 6-8 prototype): the shared bits of Proto_Sabana. Any player can ask for a
+    /// barajustada (B), to work the corral gate (Interact, when near it), to restock the herd so
+    /// the drive and sale can be repeated (R, debug), or to save (F5) and load (F9); the host
+    /// applies it and every machine sees the same gate, the thunder and the corral count and clock.
     /// </summary>
     public sealed class NetworkWorld : NetworkBehaviour
     {
         [SerializeField] private ActiveHerd _herd;
         [SerializeField] private NetworkHerd _networkHerd;
+        [SerializeField] private NetworkSave _save;
         [SerializeField] private Corral _corral;
         [SerializeField] private ProtoGate _gate;
         [SerializeField] private ProtoThunder _thunder;
@@ -79,6 +80,10 @@ namespace Arreo.Prototype
                     RequestStampede();
                 if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
                     RequestRestock();
+                if (Keyboard.current != null && Keyboard.current.f5Key.wasPressedThisFrame)
+                    RequestSave();
+                if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
+                    RequestLoad();
                 if (LocalRiderNearGate && _interact.action.WasPressedThisFrame())
                     RequestGate();
             }
@@ -150,6 +155,17 @@ namespace Arreo.Prototype
                 return;
             _networkHerd.ServerRestock();
             _drive = null;
+        }
+
+        // Debug: F5 saves and F9 goes back to the save, whoever presses them; the host does it (rule 5).
+        [ServerRpc(RequireOwnership = false)]
+        private void RequestSave() => _save.SaveNow();
+
+        [ServerRpc(RequireOwnership = false)]
+        private void RequestLoad()
+        {
+            if (_save.LoadNow())
+                _drive = null;
         }
 
         [ServerRpc(RequireOwnership = false)]

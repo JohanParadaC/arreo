@@ -2,6 +2,7 @@
     "name": "Arreo.Prototype.Editor",
     "rootNamespace": "Arreo.Prototype.Editor",
     "references": [
+        "Arreo.Core",
         "Arreo.Herd",
         "Arreo.Horse",
         "Arreo.Rope",

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using Arreo.Core;
 using Arreo.Economy;
 using Arreo.Herd;
 using Arreo.Horse;
@@ -46,6 +47,8 @@ namespace Arreo.Prototype.Editor
         private const string CameraSettingsPath = CameraSettingsFolder + "/CameraSettings_Proto.asset";
         private const string EconomySettingsFolder = "Assets/_Project/Data/Economy";
         private const string EconomySettingsPath = EconomySettingsFolder + "/EconomySettings_Proto.asset";
+        private const string ClockSettingsFolder = "Assets/_Project/Data/Clock";
+        private const string ClockSettingsPath = ClockSettingsFolder + "/ClockSettings_Proto.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
         private const string NetworkTestPlayerPath = "Build/NetworkTest/Arreo.exe";
@@ -81,6 +84,7 @@ namespace Arreo.Prototype.Editor
             EnsureFolder(RiderSettingsFolder);
             EnsureFolder(CameraSettingsFolder);
             EnsureFolder(EconomySettingsFolder);
+            EnsureFolder(ClockSettingsFolder);
 
             // Load every asset only after NewScene: it unloads unused assets, and a settings asset
             // loaded before it came back as a dead reference (that left ProtoCameraRig without settings).
@@ -121,6 +125,12 @@ namespace Arreo.Prototype.Editor
             var economy = economyObject.AddComponent<NetworkEconomy>();
             SetReference(economy, "_settings", LoadOrCreate<EconomySettings>(EconomySettingsPath));
 
+            // The game's day and hour, run by the host (rule 5).
+            var clockObject = new GameObject("NetworkClock");
+            clockObject.AddComponent<NetworkObject>();
+            var clock = clockObject.AddComponent<NetworkClock>();
+            SetReference(clock, "_settings", LoadOrCreate<ClockSettings>(ClockSettingsPath));
+
             var fairObject = new GameObject("ProtoFair");
             fairObject.AddComponent<NetworkObject>();
             var fair = fairObject.AddComponent<ProtoFair>();
@@ -134,11 +144,23 @@ namespace Arreo.Prototype.Editor
             SetReference(hud, "_world", world);
             SetReference(hud, "_fair", fair);
             SetReference(hud, "_economy", economy);
+            SetReference(hud, "_clock", clock);
 
             var benchmark = new GameObject("ProtoBenchmark").AddComponent<ProtoBenchmark>();
             SetReference(benchmark, "_herd", herd);
 
             NetworkManager networkManager = CreateNetwork(playerPrefab);
+
+            // The host saves the game; the menu continues it and spawns players where they were.
+            var save = networkManager.gameObject.AddComponent<NetworkSave>();
+            SetReference(save, "_networkManager", networkManager);
+            SetReference(save, "_herd", herd.GetComponent<NetworkHerd>());
+            SetReference(save, "_economy", economy);
+            SetReference(save, "_clock", clock);
+            SetReference(networkManager.GetComponent<NetworkPlayerSpawner>(), "_save", save);
+            SetReference(networkManager.GetComponent<ProtoNetworkMenu>(), "_save", save);
+            SetReference(world, "_save", save);
+            SetReference(hud, "_save", save);
             var binder = new GameObject("ProtoLocalRiderBinder").AddComponent<ProtoLocalRiderBinder>();
             SetReference(binder, "_cameraRig", cameraRig);
             SetReference(binder, "_hud", hud);
@@ -148,6 +170,7 @@ namespace Arreo.Prototype.Editor
             SetReference(bot, "_networkManager", networkManager);
             SetReference(bot, "_herd", herd);
             new GameObject("ProtoSaleBot").AddComponent<ProtoSaleBot>();
+            new GameObject("ProtoGoToBot").AddComponent<ProtoGoToBot>();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssignSceneIds(scene);

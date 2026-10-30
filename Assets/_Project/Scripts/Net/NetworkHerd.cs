@@ -154,6 +154,20 @@ namespace Arreo.Net
         public void ServerRestock()
         {
             _herd.Restock();
+            StartNewGeneration();
+        }
+
+        /// <summary>Host: the herd as a saved game had it (see <see cref="ActiveHerd.Restore"/>).</summary>
+        [Server]
+        public void ServerRestore(IReadOnlyList<bool> present, IReadOnlyList<Vector3> positions, IReadOnlyList<float> yaws)
+        {
+            _herd.Restore(present, positions, yaws);
+            StartNewGeneration();
+        }
+
+        // The cows jumped: clients start over instead of sliding them across the map.
+        private void StartNewGeneration()
+        {
             _generation++;
             _buffer.Clear();
             _nextSend = Time.time;

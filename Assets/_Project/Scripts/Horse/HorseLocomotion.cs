@@ -48,6 +48,15 @@ namespace Arreo.Horse
             Stamina.Tick(IsGalloping, deltaTime);
         }
 
+        /// <summary>Stops the horse facing <paramref name="heading"/>, as after being moved somewhere (loading a game).</summary>
+        public void Stand(float heading)
+        {
+            _speed = 0f;
+            _heading = Mathf.Repeat(heading, 360f);
+            IsGalloping = false;
+            IsDriving = false;
+        }
+
         /// <summary>Drops the speed to what physics actually achieved when the horse is blocked.</summary>
         public void LimitToMeasuredSpeed(float measuredSpeed)
         {

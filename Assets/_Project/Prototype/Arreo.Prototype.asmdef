@@ -2,6 +2,7 @@
     "name": "Arreo.Prototype",
     "rootNamespace": "Arreo.Prototype",
     "references": [
+        "Arreo.Core",
         "Arreo.Herd",
         "Arreo.Horse",
         "Arreo.Rope",

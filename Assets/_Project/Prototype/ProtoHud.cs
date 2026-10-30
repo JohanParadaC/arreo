@@ -18,6 +18,8 @@ namespace Arreo.Prototype
         [SerializeField] private NetworkWorld _world;
         [SerializeField] private ProtoFair _fair;
         [SerializeField] private NetworkEconomy _economy;
+        [SerializeField] private NetworkClock _clock;
+        [SerializeField] private NetworkSave _save;
         [SerializeField] private LassoInput _lasso;
         [SerializeField] private RiderMount _mount;
         [SerializeField] private RiderInput _riderInput;
@@ -73,7 +75,7 @@ namespace Arreo.Prototype
             GUI.DrawTexture(new Rect(100, 47, 190 * stamina.Normalized, 18), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(20, 70, 290, 62),
-                "WASD: riendas · Shift: galopar · C: arreo on/off\nClic der: apuntar · Clic izq: lanzar · Q: soltar\nB: trueno · R: reponer manada · Esc: cursor");
+                "WASD: riendas · Shift: galopar · C: arreo on/off\nClic der: apuntar · Clic izq: lanzar · Q: soltar\nB: trueno · R: reponer · F5/F9: guardar/cargar");
 
             DrawDrive();
             DrawRope();
@@ -87,25 +89,43 @@ namespace Arreo.Prototype
             if (_economy == null || !_economy.IsSpawned)
                 return;
 
-            var box = new Rect(Screen.width - 330, 40, 320, 85);
+            var box = new Rect(Screen.width - 330, 40, 320, 110);
             GUI.Box(box, GUIContent.none);
-            GUI.Label(new Rect(box.x + 10, box.y + 5, 300, 25), $"Plata del hato: {Money.Format(_economy.HatoBalance)}", _style);
+            if (_clock != null && _clock.IsSpawned)
+            {
+                float hour = _clock.Hour;
+                GUI.Label(new Rect(box.x + 10, box.y + 5, 300, 25), $"Día {_clock.Day} · {(int)hour:00}:{(int)(hour % 1f * 60f):00}", _style);
+            }
+            GUI.Label(new Rect(box.x + 10, box.y + 30, 300, 25), $"Plata del hato: {Money.Format(_economy.HatoBalance)}", _style);
+            DrawSaveNotice();
             if (_fair == null || !_fair.IsSpawned)
                 return;
-            GUI.Label(new Rect(box.x + 10, box.y + 32, 300, 25),
-                $"Feria: {_fair.InPen} reses en el corral · {Money.Format(_fair.PricePerHead)} c/u");
+            GUI.Label(new Rect(box.x + 10, box.y + 57, 300, 25),
+                $"Feria: {Head(_fair.InPen)} en el corral · {Money.Format(_fair.PricePerHead)} c/u");
             if (_fair.LocalRiderAtSalePoint)
-                GUI.Label(new Rect(box.x + 10, box.y + 55, 300, 25),
-                    _fair.InPen > 0 ? $"E: vender {_fair.InPen} por {Money.Format(_fair.InPen * _fair.PricePerHead)}" : "Mete reses al corral para vender");
+                GUI.Label(new Rect(box.x + 10, box.y + 80, 300, 25),
+                    _fair.InPen > 0 ? $"E: vender {Head(_fair.InPen)} por {Money.Format(_fair.InPen * _fair.PricePerHead)}" : "Mete reses al corral para vender");
 
             if (_fair.LastSaleTime >= 0f && Time.time - _fair.LastSaleTime < 4f)
             {
                 _banner ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
                 GUI.color = new Color(0.5f, 1f, 0.4f);
-                GUI.Label(new Rect(0f, 150f, Screen.width, 50f),
-                    $"¡Vendidas {_fair.LastSaleHead} reses! +{Money.Format(_fair.LastSaleTotal)}", _banner);
+                string sold = _fair.LastSaleHead == 1 ? "¡Vendida 1 res!" : $"¡Vendidas {_fair.LastSaleHead} reses!";
+                GUI.Label(new Rect(0f, 150f, Screen.width, 50f), $"{sold} +{Money.Format(_fair.LastSaleTotal)}", _banner);
                 GUI.color = Color.white;
             }
+        }
+
+        private static string Head(int count) => count == 1 ? "1 res" : $"{count} reses";
+
+        // Only the host saves, so only it shows what saving said (a broken save explains itself there).
+        private void DrawSaveNotice()
+        {
+            if (_save == null || _save.NoticeTime < 0f || Time.time - _save.NoticeTime > 8f)
+                return;
+            var area = new Rect(Screen.width - 530, 155, 520, 60);
+            GUI.Box(area, GUIContent.none);
+            GUI.Label(new Rect(area.x + 10, area.y + 5, area.width - 20, area.height - 10), _save.Notice);
         }
 
         private void DrawRope()

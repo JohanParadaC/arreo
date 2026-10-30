@@ -49,6 +49,9 @@ namespace Arreo.Net
         public static event Action<NetworkRider> LocalSpawned;
 
         public PlayerRole Role { get; private set; }
+
+        /// <summary>Host only: who this player is in the saved game (see <see cref="Arreo.Core.PlayerPlaces.IdForJoin"/>).</summary>
+        public string ServerPlayerId { get; set; } = "";
         public HorseController Horse => _horse;
         public RiderInput Input => _input;
         public LassoInput Lasso => _lasso;
@@ -155,6 +158,19 @@ namespace Arreo.Net
 
         [TargetRpc]
         private void TargetSetDrag(NetworkConnection target, Vector3 velocity) => _horse.SetExternalVelocity(velocity);
+
+        /// <summary>Host: puts this rider at a place (a loaded game). The owner moves it (D74).</summary>
+        [Server]
+        public void ServerTeleport(Vector3 position, float yaw)
+        {
+            if (Owner.IsLocalClient)
+                _horse.Teleport(position, yaw);
+            else
+                TargetTeleport(Owner, position, yaw);
+        }
+
+        [TargetRpc]
+        private void TargetTeleport(NetworkConnection target, Vector3 position, float yaw) => _horse.Teleport(position, yaw);
 
         /// <summary>Host: this rider's rope snapped. If it was hard enough, everyone sees them thrown off.</summary>
         [Server]

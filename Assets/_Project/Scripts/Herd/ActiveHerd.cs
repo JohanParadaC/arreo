@@ -157,13 +157,38 @@ namespace Arreo.Herd
             {
                 SetPresent(i, true);
                 SpawnPose(random, out Vector3 position, out Quaternion rotation);
-                Rigidbody cow = _cows[i];
-                cow.transform.SetPositionAndRotation(position, rotation);
-                cow.position = position;
-                cow.rotation = rotation;
-                cow.linearVelocity = Vector3.zero;
+                Place(i, position, rotation);
             }
-            ReadState();
+        }
+
+        /// <summary>
+        /// Host: every cow as a saved game had it, index by index: in the herd or gone, and where.
+        /// Cows the save doesn't mention (it had fewer) stay as they are.
+        /// </summary>
+        public void Restore(IReadOnlyList<bool> present, IReadOnlyList<Vector3> positions, IReadOnlyList<float> yaws)
+        {
+            if (_steering == null)
+                return;
+
+            int count = Mathf.Min(_cows.Count, present.Count);
+            for (int i = 0; i < count; i++)
+            {
+                SetPresent(i, present[i]);
+                Place(i, positions[i], Quaternion.Euler(0f, yaws[i], 0f));
+            }
+        }
+
+        // Stands a cow still at a pose; a hidden one keeps it as its last pose.
+        private void Place(int index, Vector3 position, Quaternion rotation)
+        {
+            Rigidbody cow = _cows[index];
+            cow.transform.SetPositionAndRotation(position, rotation);
+            cow.position = position;
+            cow.rotation = rotation;
+            cow.linearVelocity = Vector3.zero;
+            _positions[index] = position;
+            _velocities[index] = Vector3.zero;
+            _yaws[index] = rotation.eulerAngles.y;
         }
 
         private void SpawnPose(System.Random random, out Vector3 position, out Quaternion rotation)
