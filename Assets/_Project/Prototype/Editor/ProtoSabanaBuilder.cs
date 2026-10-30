@@ -115,6 +115,7 @@ namespace Arreo.Prototype.Editor
 
             var bot = new GameObject("ProtoNetBot").AddComponent<ProtoNetBot>();
             SetReference(bot, "_networkManager", networkManager);
+            SetReference(bot, "_herd", herd);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssignSceneIds(scene);
