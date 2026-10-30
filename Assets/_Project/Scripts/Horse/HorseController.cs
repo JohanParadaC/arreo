@@ -38,7 +38,8 @@ namespace Arreo.Horse
 
         private void FixedUpdate()
         {
-            if (_locomotion == null)
+            // A kinematic horse is someone else's, moved by the network: never push it.
+            if (_locomotion == null || _rigidbody.isKinematic)
                 return;
 
             Vector3 velocity = _rigidbody.linearVelocity;
