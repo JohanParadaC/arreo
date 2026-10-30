@@ -1,6 +1,8 @@
 #if UNITY_EDITOR
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using Arreo.Core;
 using Arreo.Herd;
 using Arreo.Net;
 using FishNet.Managing;
@@ -26,6 +28,7 @@ namespace Arreo.Tests.PlayMode
         private readonly List<string> _errors = new List<string>();
         private Mouse _mouse;
         private NetworkManager _network;
+        private string _saveFolder;
         private InputSettings.BackgroundBehavior _backgroundBehavior;
         private InputSettings.EditorInputBehaviorInPlayMode _editorInputBehavior;
 
@@ -44,6 +47,7 @@ namespace Arreo.Tests.PlayMode
             _mouse = InputSystem.AddDevice<Mouse>();
 
             // Host a game ("Crear partida") and wait for this machine's own rider.
+            _saveFolder = TestSaves.UseFolder();
             _network = Object.FindFirstObjectByType<NetworkManager>();
             Object.FindFirstObjectByType<Arreo.Prototype.ProtoNetworkMenu>().Host();
             for (float t = 0f; t < 10f && NetworkRider.Local == null; t += Time.unscaledDeltaTime)
@@ -72,6 +76,7 @@ namespace Arreo.Tests.PlayMode
             Scene proto = SceneManager.GetActiveScene();
             SceneManager.SetActiveScene(SceneManager.CreateScene("AfterProtoSabana"));
             yield return SceneManager.UnloadSceneAsync(proto);
+            TestSaves.Delete(_saveFolder);
         }
 
         [UnityTest]
@@ -232,6 +237,76 @@ namespace Arreo.Tests.PlayMode
             Assert.That(_errors, Is.Empty, "Console errors or warnings while selling:\n" + string.Join("\n", _errors));
         }
 
+        [UnityTest]
+        public IEnumerator Hosting_F5Saves_AndF9GoesBackToIt()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                NetworkSave save = Object.FindFirstObjectByType<NetworkSave>();
+                NetworkClock clock = NetworkClock.Instance;
+                ActiveHerd herd = NetworkHerd.Instance.Herd;
+                Assert.That(clock, Is.Not.Null, "the clock is not a spawned network object");
+                clock.ServerSet(3, 14.5f);
+                yield return new WaitForSeconds(0.2f);
+
+                yield return Press(keyboard, Key.F5);
+                SaveLoadResult saved = save.Store.Load();
+                Assert.That(saved.Status, Is.EqualTo(SaveLoadStatus.Loaded), "F5 did not save");
+                Assert.That(saved.Data.clock.day, Is.EqualTo(3));
+                Assert.That(saved.Data.clock.hour, Is.EqualTo(14.5f).Within(0.1f));
+                Assert.That(saved.Data.cows, Has.Count.EqualTo(herd.Count));
+                Assert.That(saved.Data.players.Select(p => p.id), Is.EqualTo(new[] { "player1" }));
+
+                // Change everything, then go back.
+                Vector3 riderAtSave = saved.Data.players[0].position;
+                clock.ServerSet(7, 2f);
+                herd.Remove(1);
+                MoveLocalRiderTo(riderAtSave + new Vector3(40f, 0f, 0f));
+                yield return new WaitForSeconds(0.3f);
+                yield return Press(keyboard, Key.F9);
+                yield return new WaitForSeconds(0.3f);
+
+                Assert.That(clock.Day, Is.EqualTo(3), "F9 did not bring the day back");
+                Assert.That(clock.Hour, Is.EqualTo(14.5f).Within(0.1f));
+                Assert.That(herd.Present[1], Is.True, "F9 did not bring the removed cow back");
+                Assert.That(Vector3.Distance(herd.Positions[0], saved.Data.cows[0].position), Is.LessThan(1f), "the herd is not where it was saved");
+                Assert.That(Vector3.Distance(NetworkRider.Local.transform.position, riderAtSave), Is.LessThan(1f), "the rider is not where it was saved");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+            Assert.That(_errors, Is.Empty, "Console errors or warnings while saving:\n" + string.Join("\n", _errors));
+        }
+
+        [UnityTest]
+        public IEnumerator Hosting_SavesByItselfWhenANewDayStarts()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            NetworkSave save = Object.FindFirstObjectByType<NetworkSave>();
+            Assert.That(save.HasSave, Is.False, "nothing should be saved yet");
+
+            NetworkClock.Instance.ServerSet(1, 23.995f);
+            for (float t = 0f; t < 3f && NetworkClock.Instance.Day < 2; t += Time.deltaTime)
+                yield return null;
+            yield return null;
+
+            Assert.That(NetworkClock.Instance.Day, Is.EqualTo(2));
+            SaveLoadResult saved = save.Store.Load();
+            Assert.That(saved.Status, Is.EqualTo(SaveLoadStatus.Loaded), "the new day did not save the game");
+            Assert.That(saved.Data.clock.day, Is.EqualTo(2));
+        }
+
+        private static IEnumerator Press(Keyboard keyboard, Key key)
+        {
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
+            yield return null;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            yield return new WaitForSeconds(0.2f);
+        }
+
         /// <summary>Host: puts the first <paramref name="count"/> cows standing in the middle of the fair pen.</summary>
         internal static void PutCowsInTheFairPen(ActiveHerd herd, int count)
         {
@@ -246,7 +321,7 @@ namespace Arreo.Tests.PlayMode
             }
         }
 
-        private static void MoveLocalRiderTo(Vector3 position)
+        internal static void MoveLocalRiderTo(Vector3 position)
         {
             Rigidbody body = NetworkRider.Local.Body;
             body.linearVelocity = Vector3.zero;

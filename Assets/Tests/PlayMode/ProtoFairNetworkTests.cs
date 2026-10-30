@@ -33,6 +33,7 @@ namespace Arreo.Tests.PlayMode
         private const int CowsToSell = 3;
 
         private NetworkManager _network;
+        private string _saveFolder;
         private Process _client;
         private string _report;
         private string _clientLog;
@@ -41,6 +42,7 @@ namespace Arreo.Tests.PlayMode
         public IEnumerator SetUp()
         {
             yield return EditorSceneManager.LoadSceneAsyncInPlayMode(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
+            _saveFolder = TestSaves.UseFolder();
             _network = Object.FindFirstObjectByType<NetworkManager>();
             Object.FindFirstObjectByType<Arreo.Prototype.ProtoNetworkMenu>().Host();
             for (float t = 0f; t < 10f && NetworkRider.Local == null; t += Time.unscaledDeltaTime)
@@ -63,6 +65,7 @@ namespace Arreo.Tests.PlayMode
             Scene proto = SceneManager.GetActiveScene();
             SceneManager.SetActiveScene(SceneManager.CreateScene("AfterProtoFair"));
             yield return SceneManager.UnloadSceneAsync(proto);
+            TestSaves.Delete(_saveFolder);
         }
 
         [UnityTest]
