@@ -6,12 +6,16 @@ namespace Arreo.Rope
     /// <summary>What a rope looks like from outside: all a view (or a network client) needs to draw it.</summary>
     public readonly struct RopeSnapshot
     {
-        public RopeSnapshot(Vector3 start, Vector3 end, float tension01, RopeState state)
+        public RopeSnapshot(Vector3 start, Vector3 end, float tension01, RopeState state,
+            float breakProgress = 0f, int caughtId = -1, Transform caughtHead = null)
         {
             Start = start;
             End = end;
             Tension01 = tension01;
             State = state;
+            BreakProgress = breakProgress;
+            CaughtId = caughtId;
+            CaughtHead = caughtHead;
         }
 
         public Vector3 Start { get; }
@@ -21,6 +25,15 @@ namespace Arreo.Rope
         public float Tension01 { get; }
 
         public RopeState State { get; }
+
+        /// <summary>How close the rope is to snapping, 0 to 1.</summary>
+        public float BreakProgress { get; }
+
+        /// <summary>Network id of what's caught, or -1.</summary>
+        public int CaughtId { get; }
+
+        /// <summary>Head of what's caught on this machine (for the camera), or null.</summary>
+        public Transform CaughtHead { get; }
     }
 
     /// <summary>
@@ -28,7 +41,7 @@ namespace Arreo.Rope
     /// <see cref="LassoTarget"/>: a cow today, a cuatrero or another player later), the pull as one
     /// spring between the two ends, and the rope's state. Draws nothing; from week 6 it runs on the host only.
     /// </summary>
-    public sealed class RopeSimulation : MonoBehaviour
+    public sealed class RopeSimulation : MonoBehaviour, IRopeSnapshotSource, ILassoActions
     {
         private static readonly Collider[] OverlapBuffer = new Collider[32];
 
@@ -51,6 +64,9 @@ namespace Arreo.Rope
         private Vector3 _end;
         private Vector3 _letGoEnd;
         private float _letGoElapsed;
+        private ILassoTargetDirectory _directory;
+        private int _claimedTarget = -1;
+        private float _rewindSeconds;
 
         public RopeState State => _machine != null ? _machine.State : RopeState.Coiled;
         public float Tension => _smoothedTension;
@@ -69,7 +85,14 @@ namespace Arreo.Rope
 
         public Vector3 SaddlePoint => _saddleBody.transform.TransformPoint(_settings.SaddleAnchor);
 
-        public RopeSnapshot Snapshot => new RopeSnapshot(SaddlePoint, _end, _smoothedTension / _settings.BreakTension, State);
+        public RopeSnapshot Snapshot => new RopeSnapshot(SaddlePoint, _end, _smoothedTension / _settings.BreakTension, State,
+            BreakProgress, _caught != null ? _caught.TargetId : -1, _caught != null ? _caught.Head : null);
+
+        /// <summary>
+        /// Networked catches: targets come from this directory by id, and a client's claimed target
+        /// is checked where the client saw it (lag compensation) instead of overlapping colliders now.
+        /// </summary>
+        public void SetTargetDirectory(ILassoTargetDirectory directory) => _directory = directory;
 
         private void Awake()
         {
@@ -98,11 +121,21 @@ namespace Arreo.Rope
             LassoThrow.FlightTime(Vector3.Distance(SaddlePoint, target), _settings.ThrowSpeed, _settings.MinFlightTime);
 
         /// <summary>Throws the loop toward a point; it lands at most Max Range away.</summary>
-        public bool Throw(Vector3 target)
+        public bool Throw(Vector3 target) => Throw(target, -1, 0f);
+
+        void ILassoActions.Throw(Vector3 target, int targetId) => Throw(target, targetId, 0f);
+
+        /// <summary>
+        /// A throw requested over the network: <paramref name="claimedTarget"/> is what the thrower
+        /// aimed at, and <paramref name="rewindSeconds"/> how far in the past their view of it was.
+        /// </summary>
+        public bool Throw(Vector3 target, int claimedTarget, float rewindSeconds)
         {
             if (_machine == null || !_machine.Throw())
                 return false;
 
+            _claimedTarget = claimedTarget;
+            _rewindSeconds = Mathf.Clamp(rewindSeconds, 0f, _settings.MaxRewind);
             _throwStart = SaddlePoint;
             _throwTarget = LassoThrow.ClampToRange(_throwStart, target, _settings.MaxRange);
             _flightTime = EstimateFlightTime(_throwTarget);
@@ -221,6 +254,16 @@ namespace Arreo.Rope
 
         private LassoTarget FindCatch(Vector3 landing)
         {
+            if (_directory != null)
+            {
+                _directory.GetCurrentHeads(_heads);
+                Vector3 seen = Vector3.zero;
+                bool hasView = _claimedTarget >= 0 && _directory.TryGetHeadAt(_claimedTarget, _rewindSeconds, out seen);
+                int caught = LassoValidator.ResolveCatch(landing, _settings.CatchRadius, _settings.CatchMargin,
+                    _claimedTarget, hasView, seen, _heads);
+                return caught >= 0 ? _directory.GetTarget(caught) : null;
+            }
+
             _candidates.Clear();
             _heads.Clear();
             int count = Physics.OverlapSphereNonAlloc(landing, _settings.CatchRadius + 2f, OverlapBuffer);

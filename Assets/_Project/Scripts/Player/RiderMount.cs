@@ -28,6 +28,7 @@ namespace Arreo.Player
         private Vector3 _getUpPoint;
 
         public bool HasControl => _fall == null || _fall.HasControl;
+        public RiderSettings Settings => _settings;
         public RiderState State => _fall != null ? _fall.State : RiderState.Mounted;
 
         private void Awake()
@@ -76,13 +77,27 @@ namespace Arreo.Player
                 _rope.Snapped -= OnRopeSnapped;
         }
 
+        // Offline: this rider's own rope decides the fall.
         private void OnRopeSnapped(float snapTension, Vector3 pullDirection)
         {
-            if (!_fall.TryFall(snapTension, pullDirection, out Vector3 launch))
-                return;
+            if (_fall.TryFall(snapTension, pullDirection, out Vector3 launch))
+                SpawnRagdoll(launch + _horseBody.linearVelocity);
+        }
 
+        /// <summary>
+        /// Plays a fall the host decided (D74), on every machine, so everyone sees this rider fly
+        /// off and climb back on. <paramref name="velocity"/> already includes the horse's own speed.
+        /// </summary>
+        public void PlayFall(Vector3 velocity)
+        {
+            if (_fall != null && _fall.FallNow())
+                SpawnRagdoll(velocity);
+        }
+
+        private void SpawnRagdoll(Vector3 velocity)
+        {
             Vector3 torso = _horse.transform.TransformPoint(_torsoOffset);
-            _ragdoll = RiderRagdoll.Spawn(torso, _horse.transform.rotation, launch + _horseBody.linearVelocity,
+            _ragdoll = RiderRagdoll.Spawn(torso, _horse.transform.rotation, velocity,
                 _settings.TumbleSpin, _clothes, _skin, _horse.GetComponentsInChildren<Collider>());
             // Same tag as the horse, so whatever sees through this player (the camera) sees through the ragdoll too.
             foreach (Collider part in _ragdoll.GetComponentsInChildren<Collider>())
@@ -106,7 +121,8 @@ namespace Arreo.Player
             if (before == RiderState.Remounting && now == RiderState.Mounted)
                 _riderModel.localPosition = _modelLocalPosition;
 
-            if (!HasControl)
+            // Only the machine that moves this horse (its owner) reins it in.
+            if (!HasControl && _horse.enabled)
                 PullUpTheHorse();
         }
 

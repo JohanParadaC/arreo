@@ -7,14 +7,16 @@ namespace Arreo.Player
     /// <summary>
     /// Hold to aim (the camera moves over the shoulder), throw the lasso where the camera's center
     /// points, and let go on demand. Aiming at something catchable leads the throw to where its
-    /// head will be when the loop arrives. From week 6 these become requests to the host.
+    /// head will be when the loop arrives, and names it so the host can check the catch where this
+    /// player saw it. In a network game the throw is a request to the host.
     /// </summary>
     public sealed class LassoInput : MonoBehaviour
     {
         private const float AimDistance = 80f;
         private static readonly RaycastHit[] Hits = new RaycastHit[16];
 
-        [SerializeField] private RopeSimulation _rope;
+        [Tooltip("Who carries out the throw: a RopeSimulation offline, a networked rope online (anything implementing ILassoActions).")]
+        [SerializeField] private MonoBehaviour _actions;
         [Tooltip("While the rider is down they can't aim, throw or let go.")]
         [SerializeField] private RiderMount _mount;
         [Tooltip("The rider's horse, ignored by the aim ray.")]
@@ -26,8 +28,10 @@ namespace Arreo.Player
         /// <summary>Aim held (and the rider in control); the camera and the crosshair follow it.</summary>
         public bool IsAiming { get; private set; }
 
-        /// <summary>Gives this rider the rope tied to their horse (the rider spawns before it's known).</summary>
-        public void BindRope(RopeSimulation rope) => _rope = rope;
+        private ILassoActions Actions => _actions as ILassoActions;
+
+        /// <summary>Gives this rider the lasso to throw with (the rider spawns before it's known).</summary>
+        public void BindRope(MonoBehaviour actions) => _actions = actions;
 
         private void OnEnable()
         {
@@ -42,17 +46,24 @@ namespace Arreo.Player
         {
             bool hasControl = _mount == null || _mount.HasControl;
             IsAiming = hasControl && _aim.action.IsPressed();
-            if (!hasControl || _rope == null)
+            ILassoActions actions = Actions;
+            if (!hasControl || actions == null)
                 return;
 
             if (_release.action.WasPressedThisFrame())
-                _rope.Release();
+            {
+                actions.Release();
+            }
             else if (_throw.action.WasPressedThisFrame() && Camera.main != null)
-                _rope.Throw(AimPoint(Camera.main));
+            {
+                Vector3 point = AimPoint(Camera.main, actions, out int targetId);
+                actions.Throw(point, targetId);
+            }
         }
 
-        private Vector3 AimPoint(Camera camera)
+        private Vector3 AimPoint(Camera camera, ILassoActions actions, out int targetId)
         {
+            targetId = -1;
             Ray ray = camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
             int count = Physics.RaycastNonAlloc(ray, Hits, AimDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
@@ -75,8 +86,9 @@ namespace Arreo.Player
             if (target == null)
                 return nearest.Value.point;
 
+            targetId = target.TargetId;
             Vector3 head = target.HeadPosition;
-            return head + target.Body.linearVelocity * _rope.EstimateFlightTime(head);
+            return head + target.Velocity * actions.EstimateFlightTime(head);
         }
     }
 }

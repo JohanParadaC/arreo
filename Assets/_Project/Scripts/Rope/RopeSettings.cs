@@ -17,6 +17,12 @@ namespace Arreo.Rope
         [Tooltip("How close to a head the loop must land to catch it (m). Bigger = more forgiving.")]
         [SerializeField, Min(0.1f)] private float _catchRadius = 1.4f;
 
+        [Header("Network (lag compensation)")]
+        [Tooltip("Extra reach (m) for the cow a client aimed at, on top of Catch Radius, when checked where it is now on the host. Covers the ~100 ms the client sees in the past.")]
+        [SerializeField, Min(0f)] private float _catchMargin = 0.8f;
+        [Tooltip("Furthest back (s) the host rewinds the herd to check a client's throw where the client saw it. Higher forgives more lag but is easier to abuse.")]
+        [SerializeField, Range(0f, 1f)] private float _maxRewind = 0.4f;
+
         [Header("Rope (verlet)")]
         [Tooltip("Number of rope points. More = smoother shape, a bit more CPU. It doesn't change the pull.")]
         [SerializeField, Range(4, 64)] private int _pointCount = 17;
@@ -66,6 +72,8 @@ namespace Arreo.Rope
         public float MinFlightTime => _minFlightTime;
         public float ArcHeight => _arcHeight;
         public float CatchRadius => _catchRadius;
+        public float CatchMargin => _catchMargin;
+        public float MaxRewind => _maxRewind;
         public float GroundHeight => _groundHeight;
         public float Slack => _slack;
         public float MaxLength => _maxLength;

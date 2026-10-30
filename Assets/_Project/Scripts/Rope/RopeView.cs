@@ -11,7 +11,8 @@ namespace Arreo.Rope
         private const int CurvePoints = 24;
         private const int LoopPoints = 20;
 
-        [SerializeField] private RopeSimulation _rope;
+        [Tooltip("A RopeSimulation (host) or a networked rope (clients): anything that implements IRopeSnapshotSource.")]
+        [SerializeField] private MonoBehaviour _source;
         [SerializeField] private LineRenderer _line;
         [SerializeField] private LineRenderer _loop;
         [Tooltip("Sag of a slack rope as a fraction of its length.")]
@@ -26,15 +27,16 @@ namespace Arreo.Rope
 
         private void LateUpdate()
         {
-            // Nothing to draw until the rope is tied to a horse (never on clients this week).
-            if (!_rope.IsConfigured)
+            var rope = _source as IRopeSnapshotSource;
+            // Nothing to draw until the rope is tied to a horse.
+            if (rope == null || !rope.IsConfigured)
             {
                 _line.enabled = false;
                 _loop.enabled = false;
                 return;
             }
 
-            RopeSnapshot snapshot = _rope.Snapshot;
+            RopeSnapshot snapshot = rope.Snapshot;
             switch (snapshot.State)
             {
                 case RopeState.Coiled:
