@@ -7,7 +7,8 @@ Documentación completa (visión, decisiones, arquitectura, roadmap): https://cl
 ## Estado actual
 
 - Fantasía: mezcla, caos en el arreo y calma en el hato.
-- Fase: prototipo (semanas 1–6 hechas: la semana 5 puso los caballos en red y la 6 la manada, la soga, la barajustada, la puerta y el corral). Ver el roadmap antes de proponer trabajo fuera de la semana en curso.
+- Fase: prototipo (semanas 1–7 hechas: la semana 5 puso los caballos en red, la 6 la manada, la soga, la barajustada, la puerta y el corral, y la 7 el ciclo mínimo: arrear hasta la feria del pueblo, vender y ver la misma plata del hato). Ver el roadmap antes de proponer trabajo fuera de la semana en curso.
+- Reses vendidas o perdidas (D29): salen del hato para siempre, pero conservan su índice en `ActiveHerd` (se ocultan), así los ids de red de las demás no se corren. En el prototipo, R repone la manada entera.
 - Co-op tipo Stardew Valley (D73): todos comparten el mismo hato, pero cada jugador es independiente.
 - Plata (D75, 2026-10-30): compartida del hato por defecto, con opción de separarla por jugador al crear la partida, como en Stardew. El modelo (`Wallets`) soporta los dos modos; la semana 7 solo pone en red la compartida.
 - Desarrollador: Johan, solo, ~15 h por semana.
@@ -54,7 +55,7 @@ Assets/Tests/EditMode/  Assets/Tests/PlayMode/
 ```
 
 - `Assets/_Project/Prototype/`: escenas y scripts **desechables** de las semanas 2–6 (por ejemplo `Proto_Sabana`, que se regenera desde el menú Arreo → Prototype). No construir sobre ellos.
-- `Assets/_Project/Data/`: ScriptableObjects con datos de diseño (por ejemplo `Horse/HorseSettings_Proto.asset`).
+- `Assets/_Project/Data/`: ScriptableObjects con datos de diseño (por ejemplo `Horse/HorseSettings_Proto.asset`, o `Economy/EconomySettings_Proto.asset` con el precio por res, que por ahora es un valor de relleno).
 - Una assembly definition por carpeta. Namespace `Arreo.<Carpeta>`, por ejemplo `Arreo.Herd`.
 - Las dependencias van de los sistemas hacia `Core`, nunca al revés.
 
@@ -79,6 +80,7 @@ Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResult
 - **CI activo:** `.github/workflows/tests.yml` corre las pruebas EditMode con GameCI en cada push (y a mano con `workflow_dispatch`). Los resultados salen como check "EditMode Test Results" en GitHub. Secrets: `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`.
 - No marcar una tarea como terminada si alguna prueba falla, en local o en el CI.
 - **Red:** `ProtoSabanaSceneTests` (PlayMode) crea una partida real con FishNet en la escena. Dos jugadores a mano: Multiplayer Play Mode (Window > Multiplayer > Multiplayer Play Mode, activar Player 2). Medir fluidez con latencia: menú Arreo > Prototype > Build Network Test Player (development build: el simulador de latencia de FishNet no existe en builds normales) y correr dos copias con `-arreoNet host|client -arreoMeasure <s> -arreoLatency <ms por trayecto> -arreoLoss <0-1> -arreoHerd <reses>`. Cada copia escribe un informe (fluidez del caballo remoto y de cada res, bytes recibidos por segundo, la soga y la caída del cliente, warnings). Con `-arreoLatency 75` FishNet mide unos 215 ms de ping (150 simulados más su propio tick).
+- **Dos jugadores automáticos:** `ProtoFairNetworkTests` (PlayMode) hospeda en el Editor y lanza el Network Test Player como cliente en segundo plano (`-arreoSellTest <informe>`, `ProtoSaleBot`), que vende en la feria; la prueba compara la plata y las reses que ve cada máquina. Antes de correr, compila el Network Test Player si alguna fuente de `Assets/_Project` es más nueva que la última compilación de la prueba (marca `Build/NetworkTest/built-for-tests.txt`): esa primera corrida tarda unos minutos más.
 
 ## Cómo trabajar en este repo
 
