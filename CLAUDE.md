@@ -9,6 +9,7 @@ Documentación completa (visión, decisiones, arquitectura, roadmap): https://cl
 - Fantasía: mezcla, caos en el arreo y calma en el hato.
 - Fase: prototipo (semanas 1–6 hechas: la semana 5 puso los caballos en red y la 6 la manada, la soga, la barajustada, la puerta y el corral). Ver el roadmap antes de proponer trabajo fuera de la semana en curso.
 - Co-op tipo Stardew Valley (D73): todos comparten el mismo hato, pero cada jugador es independiente.
+- Plata (D75, 2026-10-30): compartida del hato por defecto, con opción de separarla por jugador al crear la partida, como en Stardew. El modelo (`Wallets`) soporta los dos modos; la semana 7 solo pone en red la compartida.
 - Desarrollador: Johan, solo, ~15 h por semana.
 
 ## Stack
@@ -18,7 +19,7 @@ Documentación completa (visión, decisiones, arquitectura, roadmap): https://cl
 | Motor | Unity 6 LTS, C# |
 | Red | FishNet 4.7.3 (instalado por git desde GitHub, no de la Asset Store; la etiqueta 4.7.4 no compila: su plugin Yak viene a medias), anfitrión-cliente |
 | Transporte local | Tugboat (incluido en FishNet) |
-| Transporte Steam | FishySteamworks + Steamworks.NET; App ID de pruebas 480 hasta pagar Steam Direct |
+| Transporte Steam | FishySteamworks + Steamworks.NET; App ID de pruebas 480 hasta pagar Steam Direct. Se monta en la semana 12, no antes; nada del juego debe depender del transporte |
 | Pruebas | Unity Test Framework (EditMode y PlayMode), Multiplayer Play Mode |
 | CI | GitHub Actions + GameCI |
 | Control de versiones | GitHub con Git LFS |
