@@ -5,6 +5,8 @@
         "Arreo.Core",
         "Arreo.Horse",
         "Arreo.Player",
+        "Arreo.Herd",
+        "Arreo.Rope",
         "FishNet.Runtime"
     ],
     "includePlatforms": [],

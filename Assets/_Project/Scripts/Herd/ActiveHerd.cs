@@ -21,11 +21,53 @@ namespace Arreo.Herd
         private readonly List<Rigidbody> _cows = new List<Rigidbody>();
         private Vector3[] _positions = new Vector3[0];
         private Vector3[] _velocities = new Vector3[0];
+        private float[] _yaws = new float[0];
         private HerdSteering _steering;
         private Stampede _stampede;
+        private System.Func<IReadOnlyList<RiderSample>> _riderSource;
 
         public int Count => _cows.Count;
         public IReadOnlyList<Vector3> Positions => _positions;
+        public IReadOnlyList<float> Yaws => _yaws;
+        public IReadOnlyList<Rigidbody> Cows => _cows;
+
+        /// <summary>Cows here are kinematic copies moved by the host's snapshots (network clients).</summary>
+        public bool IsPuppet { get; private set; }
+
+        /// <summary>Every rider the cows fear, asked each physics step (all players' horses in a network game).</summary>
+        public void SetRiderSource(System.Func<IReadOnlyList<RiderSample>> source) => _riderSource = source;
+
+        /// <summary>
+        /// Network clients: spawns <paramref name="count"/> kinematic copies with no AI, to be
+        /// placed by <see cref="ApplyPoses"/>. Does nothing if the herd already exists.
+        /// </summary>
+        public void SpawnPuppets(int count)
+        {
+            if (_steering != null || IsPuppet)
+                return;
+            IsPuppet = true;
+            for (int i = 0; i < count; i++)
+            {
+                Rigidbody cow = Instantiate(_cowPrefab, transform.position, Quaternion.identity, transform);
+                cow.isKinematic = true;
+                cow.interpolation = RigidbodyInterpolation.None;
+                _cows.Add(cow);
+            }
+            _positions = new Vector3[count];
+            _velocities = new Vector3[count];
+            _yaws = new float[count];
+        }
+
+        public void ApplyPoses(IReadOnlyList<Vector3> positions, IReadOnlyList<float> yaws)
+        {
+            int count = Mathf.Min(_cows.Count, positions.Count);
+            for (int i = 0; i < count; i++)
+            {
+                _cows[i].transform.SetPositionAndRotation(positions[i], Quaternion.Euler(0f, yaws[i], 0f));
+                _positions[i] = positions[i];
+                _yaws[i] = yaws[i];
+            }
+        }
 
         /// <summary>How strong the current barajustada is, 0 (calm) to 1 (full panic).</summary>
         public float StampedeIntensity => _stampede != null ? _stampede.Intensity : 0f;
@@ -57,7 +99,7 @@ namespace Arreo.Herd
         /// <summary>Spawns the cows once; later calls do nothing.</summary>
         public void SpawnHerd()
         {
-            if (_steering != null)
+            if (_steering != null || IsPuppet)
                 return;
 
             _steering = _settings.CreateSteering();
@@ -73,6 +115,7 @@ namespace Arreo.Herd
             }
             _positions = new Vector3[_cows.Count];
             _velocities = new Vector3[_cows.Count];
+            _yaws = new float[_cows.Count];
             ReadState();
         }
 
@@ -83,9 +126,7 @@ namespace Arreo.Herd
 
             ReadState();
 
-            Vector3 riderPosition = _rider != null ? _rider.position : new Vector3(float.MaxValue, 0f, float.MaxValue);
-            Vector3 riderVelocity = _rider != null ? _rider.linearVelocity : Vector3.zero;
-            float riderSpeed = new Vector2(riderVelocity.x, riderVelocity.z).magnitude;
+            IReadOnlyList<RiderSample> riders = _riderSource != null ? _riderSource() : SingleRider();
             float dt = Time.fixedDeltaTime;
             _stampede.Tick(dt);
             float panic = _stampede.Intensity;
@@ -93,7 +134,7 @@ namespace Arreo.Herd
 
             for (int i = 0; i < _cows.Count; i++)
             {
-                Vector3 desired = _steering.DesiredVelocity(i, _positions, _velocities, riderPosition, riderSpeed);
+                Vector3 desired = _steering.DesiredVelocity(i, _positions, _velocities, riders);
                 if (panic > 0f)
                     desired = Vector3.Lerp(desired, _steering.StampedeVelocity(i, _positions, _stampede.Origin, 1f), panic);
                 if (desired.sqrMagnitude < _settings.MinMoveSpeed * _settings.MinMoveSpeed)
@@ -112,12 +153,25 @@ namespace Arreo.Herd
             }
         }
 
+        private readonly RiderSample[] _single = new RiderSample[1];
+
+        // Offline (tests, single player): the one rider set in the inspector or by SetRider.
+        private IReadOnlyList<RiderSample> SingleRider()
+        {
+            if (_rider == null)
+                return System.Array.Empty<RiderSample>();
+            Vector3 velocity = _rider.linearVelocity;
+            _single[0] = new RiderSample(_rider.position, new Vector2(velocity.x, velocity.z).magnitude);
+            return _single;
+        }
+
         private void ReadState()
         {
             for (int i = 0; i < _cows.Count; i++)
             {
                 _positions[i] = _cows[i].position;
                 _velocities[i] = _cows[i].linearVelocity;
+                _yaws[i] = _cows[i].rotation.eulerAngles.y;
             }
         }
     }
