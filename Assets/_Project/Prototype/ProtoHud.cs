@@ -1,4 +1,6 @@
+using Arreo.Economy;
 using Arreo.Horse;
+using Arreo.Net;
 using Arreo.Player;
 using Arreo.Rope;
 using UnityEngine;
@@ -7,13 +9,15 @@ using UnityEngine.InputSystem;
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (week 2 prototype): debug readout of speed and stamina, plus cursor lock
-    /// for the orbit camera. Replace with the real UI later.
+    /// DISPOSABLE (weeks 2-7 prototype): debug readout of speed and stamina, the corral, the rope,
+    /// the fair and the hato's money, plus cursor lock for the orbit camera. Replace with the real UI later.
     /// </summary>
     public sealed class ProtoHud : MonoBehaviour
     {
         [SerializeField] private HorseController _horse;
         [SerializeField] private NetworkWorld _world;
+        [SerializeField] private ProtoFair _fair;
+        [SerializeField] private NetworkEconomy _economy;
         [SerializeField] private LassoInput _lasso;
         [SerializeField] private RiderMount _mount;
         [SerializeField] private RiderInput _riderInput;
@@ -69,11 +73,39 @@ namespace Arreo.Prototype
             GUI.DrawTexture(new Rect(100, 47, 190 * stamina.Normalized, 18), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(20, 70, 290, 62),
-                "WASD: riendas · Shift: galopar · C: arreo on/off\nClic der: apuntar · Clic izq: lanzar · Q: soltar\nB: trueno · Ratón: cámara · Esc: cursor");
+                "WASD: riendas · Shift: galopar · C: arreo on/off\nClic der: apuntar · Clic izq: lanzar · Q: soltar\nB: trueno · R: reponer manada · Esc: cursor");
 
             DrawDrive();
             DrawRope();
+            DrawMoneyAndFair();
             DrawCrosshairAndBanner();
+        }
+
+        private void DrawMoneyAndFair()
+        {
+            // The host keeps the money and counts the fair pen; every machine shows the same numbers.
+            if (_economy == null || !_economy.IsSpawned)
+                return;
+
+            var box = new Rect(Screen.width - 330, 40, 320, 85);
+            GUI.Box(box, GUIContent.none);
+            GUI.Label(new Rect(box.x + 10, box.y + 5, 300, 25), $"Plata del hato: {Money.Format(_economy.HatoBalance)}", _style);
+            if (_fair == null || !_fair.IsSpawned)
+                return;
+            GUI.Label(new Rect(box.x + 10, box.y + 32, 300, 25),
+                $"Feria: {_fair.InPen} reses en el corral · {Money.Format(_fair.PricePerHead)} c/u");
+            if (_fair.LocalRiderAtSalePoint)
+                GUI.Label(new Rect(box.x + 10, box.y + 55, 300, 25),
+                    _fair.InPen > 0 ? $"E: vender {_fair.InPen} por {Money.Format(_fair.InPen * _fair.PricePerHead)}" : "Mete reses al corral para vender");
+
+            if (_fair.LastSaleTime >= 0f && Time.time - _fair.LastSaleTime < 4f)
+            {
+                _banner ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+                GUI.color = new Color(0.5f, 1f, 0.4f);
+                GUI.Label(new Rect(0f, 150f, Screen.width, 50f),
+                    $"¡Vendidas {_fair.LastSaleHead} reses! +{Money.Format(_fair.LastSaleTotal)}", _banner);
+                GUI.color = Color.white;
+            }
         }
 
         private void DrawRope()

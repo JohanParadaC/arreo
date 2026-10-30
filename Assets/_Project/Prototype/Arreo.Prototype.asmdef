@@ -7,6 +7,7 @@
         "Arreo.Rope",
         "Arreo.Player",
         "Arreo.Net",
+        "Arreo.Economy",
         "FishNet.Runtime",
         "Unity.Cinemachine",
         "Unity.InputSystem"

@@ -212,6 +212,9 @@ namespace Arreo.Prototype
             float best = float.MaxValue;
             for (int i = 0; NetworkHerd.Instance.TryGetLocalTarget(i, out LassoTarget target); i++)
             {
+                // A sold cow is hidden but keeps its id.
+                if (!target.isActiveAndEnabled)
+                    continue;
                 float distance = (target.HeadPosition - from).sqrMagnitude;
                 if (distance < best)
                 {

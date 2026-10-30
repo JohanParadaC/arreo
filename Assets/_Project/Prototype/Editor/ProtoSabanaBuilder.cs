@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using Arreo.Economy;
 using Arreo.Herd;
 using Arreo.Horse;
 using Arreo.Net;
@@ -23,7 +24,7 @@ using UnityEngine.SceneManagement;
 namespace Arreo.Prototype.Editor
 {
     /// <summary>
-    /// DISPOSABLE (weeks 2-5 prototype): builds the Proto_Sabana test scene from code.
+    /// DISPOSABLE (weeks 2-7 prototype): builds the Proto_Sabana test scene from code.
     /// Rebuilding overwrites the scene but keeps the settings assets, so tuning survives.
     /// Since week 5 the horse and rider are a network player prefab spawned per player; scene
     /// objects that need the local rider get it at runtime from ProtoLocalRiderBinder.
@@ -43,6 +44,8 @@ namespace Arreo.Prototype.Editor
         private const string RiderSettingsPath = RiderSettingsFolder + "/RiderSettings_Proto.asset";
         private const string CameraSettingsFolder = "Assets/_Project/Data/Camera";
         private const string CameraSettingsPath = CameraSettingsFolder + "/CameraSettings_Proto.asset";
+        private const string EconomySettingsFolder = "Assets/_Project/Data/Economy";
+        private const string EconomySettingsPath = EconomySettingsFolder + "/EconomySettings_Proto.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
         private const string NetworkTestPlayerPath = "Build/NetworkTest/Arreo.exe";
@@ -60,6 +63,14 @@ namespace Arreo.Prototype.Editor
         private const float GateWidth = 8f;
         private const float CorralClearRadius = 42f;
 
+        // Week 7: the pueblo, about 150 m from both the hato's corral and the herd, with the fair
+        // pen's gate facing the herd (east).
+        private static readonly Vector3 PuebloCenter = new Vector3(-100f, 0f, 90f);
+        private const float FairPenYaw = 90f;
+        private const float FairPenSize = 20f;
+        private const float FairGateWidth = 8f;
+        private const float PuebloClearRadius = 50f;
+
         [MenuItem("Arreo/Prototype/Rebuild Proto_Sabana")]
         public static void Build()
         {
@@ -69,6 +80,7 @@ namespace Arreo.Prototype.Editor
             EnsureFolder(RopeSettingsFolder);
             EnsureFolder(RiderSettingsFolder);
             EnsureFolder(CameraSettingsFolder);
+            EnsureFolder(EconomySettingsFolder);
 
             // Load every asset only after NewScene: it unloads unused assets, and a settings asset
             // loaded before it came back as a dead reference (that left ProtoCameraRig without settings).
@@ -85,6 +97,7 @@ namespace Arreo.Prototype.Editor
             CinemachineCamera riderCamera = CreateCamera(cameraSettings);
             ActiveHerd herd = CreateHerd(frictionless);
             Corral corral = CreateCorral(out ProtoGate gate);
+            Corral fairPen = CreatePueblo(out Transform salePoint);
             ProtoCameraRig cameraRig = CreateRopeCamera(riderCamera, cameraSettings);
 
             var thunder = new GameObject("ProtoThunder").AddComponent<ProtoThunder>();
@@ -96,13 +109,31 @@ namespace Arreo.Prototype.Editor
             worldObject.AddComponent<NetworkObject>();
             var world = worldObject.AddComponent<NetworkWorld>();
             SetReference(world, "_herd", herd);
+            SetReference(world, "_networkHerd", herd.GetComponent<NetworkHerd>());
             SetReference(world, "_corral", corral);
             SetReference(world, "_gate", gate);
             SetReference(world, "_thunder", thunder);
             SetReference(world, "_interact", FindAction("Player/Interact"));
 
+            // The hato's money (the host's, D74) and the fair that pays into it.
+            var economyObject = new GameObject("NetworkEconomy");
+            economyObject.AddComponent<NetworkObject>();
+            var economy = economyObject.AddComponent<NetworkEconomy>();
+            SetReference(economy, "_settings", LoadOrCreate<EconomySettings>(EconomySettingsPath));
+
+            var fairObject = new GameObject("ProtoFair");
+            fairObject.AddComponent<NetworkObject>();
+            var fair = fairObject.AddComponent<ProtoFair>();
+            SetReference(fair, "_herd", herd.GetComponent<NetworkHerd>());
+            SetReference(fair, "_pen", fairPen);
+            SetReference(fair, "_salePoint", salePoint);
+            SetReference(fair, "_economy", economy);
+            SetReference(fair, "_interact", FindAction("Player/Interact"));
+
             var hud = new GameObject("ProtoHud").AddComponent<ProtoHud>();
             SetReference(hud, "_world", world);
+            SetReference(hud, "_fair", fair);
+            SetReference(hud, "_economy", economy);
 
             var benchmark = new GameObject("ProtoBenchmark").AddComponent<ProtoBenchmark>();
             SetReference(benchmark, "_herd", herd);
@@ -116,6 +147,7 @@ namespace Arreo.Prototype.Editor
             var bot = new GameObject("ProtoNetBot").AddComponent<ProtoNetBot>();
             SetReference(bot, "_networkManager", networkManager);
             SetReference(bot, "_herd", herd);
+            new GameObject("ProtoSaleBot").AddComponent<ProtoSaleBot>();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssignSceneIds(scene);
@@ -206,11 +238,15 @@ namespace Arreo.Prototype.Editor
             Material rampMaterial = CreateMaterial("Ramp", new Color(0.55f, 0.36f, 0.22f));
             Material palmMaterial = CreateMaterial("Palm", new Color(0.33f, 0.42f, 0.2f));
 
+            // The pueblo (week 7) is kept clear by skipping what would land on it, after drawing it
+            // from the random sequence as before, so every other obstacle stays where it was.
             for (int i = 0; i < 120; i++)
             {
                 Vector3 size = new Vector3(Range(random, 1f, 6f), Range(random, 0.5f, 4f), Range(random, 1f, 6f));
                 Vector3 position = RandomGroundPoint(random) + Vector3.up * (size.y / 2f);
-                CreateBlock("Box", parent, position, Quaternion.Euler(0f, Range(random, 0f, 360f), 0f), size, boxMaterial);
+                Quaternion rotation = Quaternion.Euler(0f, Range(random, 0f, 360f), 0f);
+                if (!InPueblo(position))
+                    CreateBlock("Box", parent, position, rotation, size, boxMaterial);
             }
 
             for (int i = 0; i < 25; i++)
@@ -220,16 +256,20 @@ namespace Arreo.Prototype.Editor
                 Vector3 position = RandomGroundPoint(random)
                     + Vector3.up * (Mathf.Sin(angle * Mathf.Deg2Rad) * length / 2f);
                 Quaternion rotation = Quaternion.Euler(0f, Range(random, 0f, 360f), 0f) * Quaternion.Euler(-angle, 0f, 0f);
-                CreateBlock("Ramp", parent, position, rotation, new Vector3(4f, 0.4f, length), rampMaterial);
+                if (!InPueblo(position))
+                    CreateBlock("Ramp", parent, position, rotation, new Vector3(4f, 0.4f, length), rampMaterial);
             }
 
             // Tall moriche-like markers to judge distance and speed.
             for (int i = 0; i < 40; i++)
             {
+                Vector3 position = RandomGroundPoint(random) + Vector3.up * 5f;
+                if (InPueblo(position))
+                    continue;
                 GameObject palm = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 palm.name = "Palm";
                 palm.transform.SetParent(parent);
-                palm.transform.position = RandomGroundPoint(random) + Vector3.up * 5f;
+                palm.transform.position = position;
                 palm.transform.localScale = new Vector3(0.5f, 5f, 0.5f);
                 palm.GetComponent<Renderer>().sharedMaterial = palmMaterial;
                 palm.isStatic = true;
@@ -602,36 +642,11 @@ namespace Arreo.Prototype.Editor
 
         private static Corral CreateCorral(out ProtoGate gate)
         {
-            var root = new GameObject("Corral").transform;
-            root.position = CorralCenter;
-            var corral = root.gameObject.AddComponent<Corral>();
             Material wood = CreateMaterial("Fence", new Color(0.42f, 0.3f, 0.2f));
-
+            Transform root = CreatePen("Corral", CorralCenter, 0f, CorralSize, GateWidth, wood);
+            var corral = root.gameObject.AddComponent<Corral>();
             float half = CorralSize / 2f;
             float gapHalf = GateWidth / 2f;
-            float sideLength = half - gapHalf;
-            var fence = new Vector3(0.3f, 1.6f, 1f);
-
-            void Wall(Vector3 localCenter, float yaw, float length) => CreateBlock("Fence", root,
-                CorralCenter + localCenter + Vector3.up * 0.8f, Quaternion.Euler(0f, yaw, 0f),
-                new Vector3(fence.x, fence.y, length), wood);
-
-            Wall(new Vector3(0f, 0f, -half), 90f, CorralSize);
-            Wall(new Vector3(-half, 0f, 0f), 0f, CorralSize);
-            Wall(new Vector3(half, 0f, 0f), 0f, CorralSize);
-            // North side: two stretches with the gate opening between them.
-            Wall(new Vector3(-(gapHalf + sideLength / 2f), 0f, half), 90f, sideLength);
-            Wall(new Vector3(gapHalf + sideLength / 2f, 0f, half), 90f, sideLength);
-
-            // Wing fences opening out from the gate like a funnel.
-            const float wingLength = 16f;
-            const float wingAngle = 35f;
-            foreach (float side in new[] { -1f, 1f })
-            {
-                Vector3 start = new Vector3(side * gapHalf, 0f, half);
-                Vector3 direction = Quaternion.Euler(0f, side * wingAngle, 0f) * Vector3.forward;
-                Wall(start + direction * (wingLength / 2f), side * wingAngle, wingLength);
-            }
 
             // Gate: a kinematic hinge at the west edge of the opening; closed, the panel spans it.
             var hinge = new GameObject("GateHinge");
@@ -651,6 +666,85 @@ namespace Arreo.Prototype.Editor
             SetReference(gate, "_hinge", hingeBody);
 
             return corral;
+        }
+
+        /// <summary>
+        /// Square pen with a gap for the gate on its local north side (+z) and wing fences opening
+        /// out from it like a funnel, under a root turned by <paramref name="yaw"/> so the gate can
+        /// face any way.
+        /// </summary>
+        private static Transform CreatePen(string name, Vector3 center, float yaw, float size, float gateWidth, Material wood)
+        {
+            var root = new GameObject(name).transform;
+            root.SetPositionAndRotation(center, Quaternion.Euler(0f, yaw, 0f));
+
+            float half = size / 2f;
+            float gapHalf = gateWidth / 2f;
+            float sideLength = half - gapHalf;
+            var fence = new Vector3(0.3f, 1.6f, 1f);
+
+            void Wall(Vector3 localCenter, float localYaw, float length) => CreateBlock("Fence", root,
+                root.TransformPoint(localCenter + Vector3.up * 0.8f), root.rotation * Quaternion.Euler(0f, localYaw, 0f),
+                new Vector3(fence.x, fence.y, length), wood);
+
+            Wall(new Vector3(0f, 0f, -half), 90f, size);
+            Wall(new Vector3(-half, 0f, 0f), 0f, size);
+            Wall(new Vector3(half, 0f, 0f), 0f, size);
+            // North side: two stretches with the gate opening between them.
+            Wall(new Vector3(-(gapHalf + sideLength / 2f), 0f, half), 90f, sideLength);
+            Wall(new Vector3(gapHalf + sideLength / 2f, 0f, half), 90f, sideLength);
+
+            // Wing fences opening out from the gate like a funnel.
+            const float wingLength = 16f;
+            const float wingAngle = 35f;
+            foreach (float side in new[] { -1f, 1f })
+            {
+                Vector3 start = new Vector3(side * gapHalf, 0f, half);
+                Vector3 direction = Quaternion.Euler(0f, side * wingAngle, 0f) * Vector3.forward;
+                Wall(start + direction * (wingLength / 2f), side * wingAngle, wingLength);
+            }
+            return root;
+        }
+
+        // Week 7: a few houses and a church around the fair pen. The pen has no gate panel: the
+        // cattle are sold from its opening, where a yellow post marks the sale point.
+        private static Corral CreatePueblo(out Transform salePoint)
+        {
+            var wood = AssetDatabase.LoadAssetAtPath<Material>($"{GeneratedFolder}/Fence.mat");
+            Transform pen = CreatePen("FairPen", PuebloCenter, FairPenYaw, FairPenSize, FairGateWidth, wood);
+            var fairPen = pen.gameObject.AddComponent<Corral>();
+            SetValue(fairPen, "_size", new Vector2(FairPenSize - 1f, FairPenSize - 1f));
+
+            float half = FairPenSize / 2f;
+            salePoint = new GameObject("SalePoint").transform;
+            salePoint.SetParent(pen, false);
+            salePoint.localPosition = new Vector3(0f, 0f, half + 3f);
+            GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            post.name = "SalePost";
+            post.transform.SetParent(pen, false);
+            post.transform.localPosition = new Vector3(FairGateWidth / 2f + 2f, 1.5f, half + 3f);
+            post.transform.localScale = new Vector3(0.3f, 1.5f, 0.3f);
+            post.GetComponent<Renderer>().sharedMaterial = CreateMaterial("SalePost", new Color(0.95f, 0.8f, 0.15f));
+
+            var town = new GameObject("Pueblo").transform;
+            Material walls = CreateMaterial("HouseWall", new Color(0.93f, 0.9f, 0.82f));
+            Material roof = CreateMaterial("HouseRoof", new Color(0.66f, 0.3f, 0.18f));
+            // Behind the pen and along its sides; the gate side stays open for the herd.
+            var houses = new[]
+            {
+                new Vector3(-28f, 0f, -18f), new Vector3(-28f, 0f, 0f), new Vector3(-28f, 0f, 18f),
+                new Vector3(-10f, 0f, 28f), new Vector3(8f, 0f, 28f), new Vector3(-10f, 0f, -28f), new Vector3(8f, 0f, -28f),
+            };
+            foreach (Vector3 offset in houses)
+            {
+                Vector3 at = PuebloCenter + offset;
+                CreateBlock("House", town, at + Vector3.up * 1.75f, Quaternion.identity, new Vector3(6f, 3.5f, 5f), walls);
+                CreateBlock("Roof", town, at + Vector3.up * 3.75f, Quaternion.identity, new Vector3(6.6f, 0.5f, 5.6f), roof);
+            }
+            Vector3 church = PuebloCenter + new Vector3(-42f, 0f, 0f);
+            CreateBlock("Church", town, church + Vector3.up * 3f, Quaternion.identity, new Vector3(8f, 6f, 14f), walls);
+            CreateBlock("Bell tower", town, church + new Vector3(0f, 6f, 5f), Quaternion.identity, new Vector3(3.5f, 12f, 3.5f), walls);
+            return fairPen;
         }
 
         private static InputActionReference FindAction(string path)
@@ -698,6 +792,9 @@ namespace Arreo.Prototype.Editor
                      || Vector3.Distance(point, CorralCenter) < CorralClearRadius);
             return point;
         }
+
+        private static bool InPueblo(Vector3 point) =>
+            new Vector2(point.x - PuebloCenter.x, point.z - PuebloCenter.z).magnitude < PuebloClearRadius;
 
         private static float Range(System.Random random, float min, float max) => min + (float)random.NextDouble() * (max - min);
 
@@ -775,7 +872,7 @@ namespace Arreo.Prototype.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        /// <summary>Sets a private serialized bool, int or enum field (enums by their int value).</summary>
+        /// <summary>Sets a private serialized bool, int, enum (by its int value) or Vector2 field.</summary>
         private static void SetValue(Object target, string field, object value)
         {
             var serialized = new SerializedObject(target);
@@ -792,6 +889,9 @@ namespace Arreo.Prototype.Editor
                     break;
                 case int number:
                     property.intValue = number;
+                    break;
+                case Vector2 vector:
+                    property.vector2Value = vector;
                     break;
                 default:
                     throw new System.ArgumentException($"Unsupported value type {value.GetType().Name} for {field}.");

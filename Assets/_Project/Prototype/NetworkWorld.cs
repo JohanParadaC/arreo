@@ -9,13 +9,15 @@ using UnityEngine.InputSystem;
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (week 6 prototype): the shared bits of Proto_Sabana. Any player can ask for a
-    /// barajustada (B) or to work the corral gate (Interact, when near it); the host applies it
-    /// and every machine sees the same gate, the thunder and the corral count and clock.
+    /// DISPOSABLE (weeks 6-7 prototype): the shared bits of Proto_Sabana. Any player can ask for a
+    /// barajustada (B), to work the corral gate (Interact, when near it) or, to repeat the drive
+    /// and sale, to restock the herd (R, debug); the host applies it and every machine sees the
+    /// same gate, the thunder and the corral count and clock.
     /// </summary>
     public sealed class NetworkWorld : NetworkBehaviour
     {
         [SerializeField] private ActiveHerd _herd;
+        [SerializeField] private NetworkHerd _networkHerd;
         [SerializeField] private Corral _corral;
         [SerializeField] private ProtoGate _gate;
         [SerializeField] private ProtoThunder _thunder;
@@ -75,6 +77,8 @@ namespace Arreo.Prototype
             {
                 if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame)
                     RequestStampede();
+                if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
+                    RequestRestock();
                 if (LocalRiderNearGate && _interact.action.WasPressedThisFrame())
                     RequestGate();
             }
@@ -85,12 +89,19 @@ namespace Arreo.Prototype
 
         private void ServerTick()
         {
-            if (_herd.Count == 0)
+            // Selling or restocking changes the herd: the drive into the corral starts over with what's left.
+            if (_drive != null && _drive.Total != _herd.PresentCount)
+                _drive = null;
+            if (_herd.PresentCount == 0)
+            {
+                if (_total.Value != 0)
+                    _total.Value = 0;
                 return;
-            _drive ??= new HerdDrive(_herd.Count);
+            }
+            _drive ??= new HerdDrive(_herd.PresentCount);
             if (!_drive.HasStarted && AnyRiderMoving())
                 _drive.Begin();
-            _drive.Tick(Time.deltaTime, _corral.CountInside(_herd.Positions));
+            _drive.Tick(Time.deltaTime, _corral.CountInside(_herd.Positions, _herd.Present));
 
             if (_total.Value != _drive.Total)
                 _total.Value = _drive.Total;
@@ -131,6 +142,15 @@ namespace Arreo.Prototype
 
         [ObserversRpc]
         private void ObserversThunder() => _thunder.PlayStrike();
+
+        [ServerRpc(RequireOwnership = false)]
+        private void RequestRestock()
+        {
+            if (_herd.Count == 0)
+                return;
+            _networkHerd.ServerRestock();
+            _drive = null;
+        }
 
         [ServerRpc(RequireOwnership = false)]
         private void RequestGate(NetworkConnection sender = null)
