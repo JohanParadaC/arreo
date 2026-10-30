@@ -18,10 +18,12 @@ namespace Arreo.Net
         [SerializeField] private ActiveHerd _herd;
         [Tooltip("Snapshots per second sent to clients.")]
         [SerializeField, Min(1f)] private float _sendRate = 10f;
-        [Tooltip("How far in the past clients draw the herd (s). About one snapshot interval, so there's always a newer one to blend to.")]
-        [SerializeField, Min(0f)] private float _interpolationDelay = 0.1f;
+        [Tooltip("How far in the past clients draw the herd (s). A bit more than one snapshot interval, so a late packet still leaves a newer one to blend to.")]
+        [SerializeField, Min(0f)] private float _interpolationDelay = 0.15f;
         [Tooltip("Seconds of snapshots kept: for clients to interpolate and for the host to rewind.")]
         [SerializeField, Min(0.2f)] private float _historySeconds = 1f;
+        [Tooltip("Clients: how long (s) the herd keeps moving on its last motion when a snapshot is lost or late.")]
+        [SerializeField, Min(0f)] private float _maxExtrapolation = 0.25f;
 
         private readonly List<Vector3> _positions = new List<Vector3>();
         private readonly List<float> _yaws = new List<float>();
@@ -30,6 +32,7 @@ namespace Arreo.Net
         private readonly List<RiderSample> _riders = new List<RiderSample>();
         private SnapshotBuffer _buffer;
         private ServerTimeEstimator _clock;
+        private PlaybackClock _playback;
         private float _nextSend;
 
         /// <summary>The herd on this machine (at most one per scene).</summary>
@@ -74,8 +77,10 @@ namespace Arreo.Net
             base.OnStartClient();
             if (IsServerInitialized)
                 return;
-            _buffer = new SnapshotBuffer(_historySeconds);
+            _buffer = new SnapshotBuffer(_historySeconds, _maxExtrapolation);
             _clock = new ServerTimeEstimator(windowSize: 20);
+            // Corrections to the host clock estimate speed playback up or down by up to 10 %, never jump it.
+            _playback = new PlaybackClock(maxSlew: 0.1f, snapDistance: 0.25f);
         }
 
         private void Update()
@@ -85,15 +90,18 @@ namespace Arreo.Net
                 ViewServerTime = Time.time;
                 if (Time.time < _nextSend || _herd.Count == 0)
                     return;
-                _nextSend = Time.time + 1f / _sendRate;
+                // A steady cadence (not "now + interval", which drifts a frame late every time).
+                _nextSend = Mathf.Max(_nextSend + 1f / _sendRate, Time.time);
+                // Stamped with the physics step the positions come from, not the render frame.
+                float stamp = Time.fixedTime;
                 byte[] data = HerdSnapshotCodec.Encode(_herd.Positions, _herd.Yaws);
                 LastSnapshotBytes = data.Length;
-                _buffer.Add(Time.time, _herd.Positions, _herd.Yaws);
-                ObserversSnapshot(data, Time.time);
+                _buffer.Add(stamp, _herd.Positions, _herd.Yaws);
+                ObserversSnapshot(data, stamp);
             }
             else if (_clock != null && _clock.IsReady)
             {
-                ViewServerTime = _clock.ServerNow(Time.time) - _interpolationDelay;
+                ViewServerTime = _playback.Advance(Time.deltaTime, _clock.ServerNow(Time.time) - _interpolationDelay);
                 if (_buffer.Sample(ViewServerTime, _positions, _yaws))
                     _herd.ApplyPoses(_positions, _yaws);
             }

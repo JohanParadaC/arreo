@@ -30,6 +30,7 @@ namespace Arreo.Net
         private Vector3 _end;
         private Vector3 _endTarget;
         private float _nextSend;
+        private RopeState _sentState;
 
         public bool IsConfigured => IsServerInitialized ? _rope.IsConfigured : _hasState && _rope.IsConfigured;
 
@@ -106,8 +107,11 @@ namespace Arreo.Net
             if (IsServerInitialized)
             {
                 bool busy = _rope.State != RopeState.Coiled;
-                if (Time.time < _nextSend)
+                // A change of state (thrown, caught, snapped) goes out at once, not at the idle rate.
+                bool changed = _rope.State != _sentState;
+                if (Time.time < _nextSend && !changed)
                     return;
+                _sentState = _rope.State;
                 _nextSend = Time.time + 1f / (busy ? _sendRate : _idleSendRate);
                 RopeSnapshot snapshot = _rope.Snapshot;
                 ObserversRopeState((byte)snapshot.State, PackTension(snapshot.Tension01), PackUnit(snapshot.BreakProgress),
