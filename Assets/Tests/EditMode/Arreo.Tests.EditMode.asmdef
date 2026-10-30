@@ -9,7 +9,8 @@
         "Arreo.Herd",
         "Arreo.Rope",
         "Arreo.Player",
-        "Arreo.Net"
+        "Arreo.Net",
+        "Arreo.Economy"
     ],
     "includePlatforms": [
         "Editor"
