@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using Arreo.Core;
 using Arreo.Herd;
 using Arreo.Horse;
 using Arreo.Net;
@@ -14,13 +15,14 @@ using UnityEngine;
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (weeks 5-6 prototype): two-player network test for player builds. Off unless
-    /// started with -arreoMeasure &lt;seconds&gt;; -arreoHerd &lt;n&gt; sets the herd size on the host.
-    /// Both riders ride circles, alternating walk and gallop. The client then hunts the nearest
-    /// cow, lassoes it and gallops away until the rope snaps. Each machine records the other
-    /// player's horse and every cow each frame, the bytes it receives, what it sees of the
-    /// client's rope and fall, and any warnings, writes a report to -arreoMeasureOut &lt;file&gt;
-    /// and quits.
+    /// DISPOSABLE (weeks 5-8 prototype): network test for player builds, 2 to 5 players. Off unless
+    /// started with -arreoMeasure &lt;seconds&gt;; -arreoHerd &lt;n&gt; sets the herd size on the host;
+    /// -arreoWaitPlayers &lt;n&gt; (default 2) waits for that many riders before measuring.
+    /// Every rider rides circles, alternating walk and gallop. Clients then hunt the nearest cow,
+    /// lasso it and gallop away until the rope snaps. Each machine records one other player's horse
+    /// and every cow each frame, the bytes it receives, what it sees of the client's rope and fall,
+    /// its frame times, where the frame's time goes (Profiler markers) and its memory, and any
+    /// warnings; it writes a report to -arreoMeasureOut &lt;file&gt; and quits.
     /// </summary>
     public sealed class ProtoNetBot : MonoBehaviour
     {
@@ -54,6 +56,11 @@ namespace Arreo.Prototype
         private int _firstSnapshotCount = -1;
         private int _warnings;
         private int _errors;
+        private int _waitPlayers = 2;
+        private bool _measuring;
+        private int _players;
+        private readonly FrameTimeStats _frameTimes = new FrameTimeStats();
+        private ProtoPerfRecorder _perf;
 
         private Phase _phase;
         private float _phaseStart;
@@ -83,12 +90,21 @@ namespace Arreo.Prototype
             int herdIndex = Array.IndexOf(args, "-arreoHerd");
             if (herdIndex >= 0 && herdIndex + 1 < args.Length)
                 _herd.SetCount(int.Parse(args[herdIndex + 1], CultureInfo.InvariantCulture));
+            int waitIndex = Array.IndexOf(args, "-arreoWaitPlayers");
+            if (waitIndex >= 0 && waitIndex + 1 < args.Length)
+                _waitPlayers = int.Parse(args[waitIndex + 1], CultureInfo.InvariantCulture);
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = (int)FrameRate;
+            // Several windows on one screen: the ones without focus must keep running to be measured.
+            Application.runInBackground = true;
             Application.logMessageReceived += CountProblems;
         }
 
-        private void OnDestroy() => Application.logMessageReceived -= CountProblems;
+        private void OnDestroy()
+        {
+            Application.logMessageReceived -= CountProblems;
+            _perf?.Dispose();
+        }
 
         private void Start()
         {
@@ -98,7 +114,7 @@ namespace Arreo.Prototype
 
         private void CountBytes(ClientReceivedDataArgs args)
         {
-            if (_elapsed >= WarmupSeconds)
+            if (_measuring)
                 _bytesReceived += args.Data.Count;
         }
 
@@ -236,6 +252,17 @@ namespace Arreo.Prototype
             }
             if (remote == null || _elapsed < WarmupSeconds)
                 return;
+            if (!_measuring)
+            {
+                // With several players, measure only once everyone is in.
+                if (NetworkRider.All.Count < _waitPlayers)
+                    return;
+                _measuring = true;
+                _perf = new ProtoPerfRecorder();
+            }
+            _players = Mathf.Max(_players, NetworkRider.All.Count);
+            _frameTimes.Add(Time.unscaledDeltaTime * 1000f);
+            _perf.Sample();
 
             // On the host, the client's rope is the real simulation; its fall is what this window shows.
             if (_networkManager.IsServerStarted)
@@ -318,6 +345,16 @@ namespace Arreo.Prototype
                 _bytesReceived / seconds,
                 _throws, _ownCatchId, _ownFall, _ropeEnd, _seenRemoteCatchId, _seenRemoteFall,
                 _warnings, _errors, string.Join(" | ", _problems), _peakTension, _peakBreak);
+            // 60 fps is 16.7 ms a frame; a frame over 20 ms is one a player would notice as a hitch.
+            text += string.Format(CultureInfo.InvariantCulture,
+                "\nplayers={0} rendering={1} gpu=\"{2}\" screen={3}x{4}\n" +
+                "fps: average={5:0.0} p50Ms={6:0.0} p99Ms={7:0.0} maxMs={8:0.0} over20Ms={9:P1}\n",
+                _players, Application.isBatchMode ? "none (batchmode)" : "window", SystemInfo.graphicsDeviceName,
+                Screen.width, Screen.height,
+                _frameTimes.AverageFps, _frameTimes.Percentile(0.5f), _frameTimes.Percentile(0.99f), _frameTimes.Max,
+                _frameTimes.ShareSlowerThan(20f));
+            if (_perf != null)
+                text += _perf.Report();
             File.WriteAllText(_outputPath, text);
             Debug.Log("[ProtoNetBot] " + text);
             Application.Quit();
