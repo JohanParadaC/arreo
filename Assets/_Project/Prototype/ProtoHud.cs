@@ -104,24 +104,24 @@ namespace Arreo.Prototype
             if (canto == null || !canto.IsSpawned)
                 return;
 
-            var box = new Rect(10, Screen.height - 75, 360, 65);
-            GUI.Box(box, GUIContent.none);
             string which = canto.Canto == null ? "el canto fijo del juego"
                 : canto.HostHasOwnCanto ? "el tuyo (ya llegó al anfitrión)"
                 : $"el tuyo (enviando {canto.UploadProgress:P0}; mientras, el fijo)";
-            GUI.Label(new Rect(box.x + 10, box.y + 5, box.width - 20, 25), $"Canto: {which}");
             int calmed = _world != null ? _world.CalmedByCanto : 0;
             string herd = calmed == 1 ? "1 res lo oye y se calma" : $"{calmed} reses lo oyen y se calman";
+            string line = canto.IsPlaying ? $"♪ Cantando… {herd}" : calmed > 0 ? herd : "Mantén V para cantarle a la manada";
+            GUIStyle lineStyle = canto.IsPlaying ? _style : GUI.skin.label;
+
+            // As wide as its longest line, so a long count never cuts the text off.
+            string first = $"Canto: {which}";
+            float width = Mathf.Max(GUI.skin.label.CalcSize(new GUIContent(first)).x, lineStyle.CalcSize(new GUIContent(line)).x) + 30f;
+            var box = new Rect(10, Screen.height - 75, Mathf.Max(360f, width), 65);
+            GUI.Box(box, GUIContent.none);
+            GUI.Label(new Rect(box.x + 10, box.y + 5, box.width - 20, 25), first);
             if (canto.IsPlaying)
-            {
                 GUI.color = new Color(1f, 0.9f, 0.5f);
-                GUI.Label(new Rect(box.x + 10, box.y + 30, box.width - 20, 30), $"♪ Cantando… {herd}", _style);
-                GUI.color = Color.white;
-            }
-            else if (calmed > 0)
-                GUI.Label(new Rect(box.x + 10, box.y + 32, box.width - 20, 25), $"{herd}");
-            else
-                GUI.Label(new Rect(box.x + 10, box.y + 32, box.width - 20, 25), "Mantén V para cantarle a la manada");
+            GUI.Label(new Rect(box.x + 10, box.y + 32, box.width - 20, 30), line, lineStyle);
+            GUI.color = Color.white;
         }
 
         // Esc frees the cursor; meanwhile the options are on screen.
