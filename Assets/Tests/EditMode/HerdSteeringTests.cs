@@ -205,7 +205,63 @@ namespace Arreo.Tests.EditMode
             new RiderFear(fearRadius: 15f, gallopRadiusMultiplier: 2f, stillIntensity: 0.5f,
                 gallopReferenceSpeed: 12f, panicStartSpeed: 6f, flightZoneRadius: 8f),
             flightZoneSpeed: 2.2f,
-            new CantoCalm(radius: 30f, fullRadius: 15f, fearReduction: 0.75f, cohesionBoost: 1.5f, riseSeconds: 2f, fadeSeconds: 4f));
+            new CantoCalm(radius: 30f, fullRadius: 15f, fearReduction: 0.75f, cohesionBoost: 1.5f, riseSeconds: 2f, fadeSeconds: 4f,
+                stampedeShortening: 0.5f, regroupRadiusBoost: 1.5f));
+
+        [Test]
+        public void Canto_CalmCowFindsHerdMatesBeyondTheUsualRadius()
+        {
+            // The herd mate is 20 m away: past the 12 m neighbor radius, inside 12 x 2.5 = 30 m.
+            var positions = new[] { Vector3.zero, new Vector3(20f, 0f, 0f) };
+            var velocities = new[] { Vector3.zero, Vector3.zero };
+            HerdSteering steering = CreateSteeringWithCanto();
+
+            float apart = steering.DesiredVelocity(0, positions, velocities, new RiderSample[0], cantoCalm: 0f).x;
+            float together = steering.DesiredVelocity(0, positions, velocities, new RiderSample[0], cantoCalm: 1f).x;
+
+            Assert.That(apart, Is.EqualTo(0f));
+            Assert.That(together, Is.GreaterThan(1f));
+        }
+
+        [Test]
+        public void Canto_ScatteredHerdRegroupsFaster()
+        {
+            // A herd strung out after a barajustada, each cow 14 m from the next (past the 12 m neighbor
+            // radius, so without the canto none of them feels the others), left alone for 5 s.
+            float scattered = SpreadAfter(cantoCalm: 0f, seconds: 5f);
+            float calmed = SpreadAfter(cantoCalm: 1f, seconds: 5f);
+
+            Assert.That(calmed, Is.LessThan(scattered * 0.6f), $"spread {calmed:0.0} m with the canto, {scattered:0.0} m without");
+        }
+
+        // Average distance (m) of each cow to the herd's center after moving at its desired velocity.
+        private static float SpreadAfter(float cantoCalm, float seconds)
+        {
+            const float step = 0.1f;
+            HerdSteering steering = CreateSteeringWithCanto();
+            var positions = new Vector3[6];
+            var velocities = new Vector3[6];
+            var desired = new Vector3[6];
+            for (int i = 0; i < positions.Length; i++)
+                positions[i] = new Vector3(i * 14f, 0f, 0f);
+            for (float t = 0f; t < seconds; t += step)
+            {
+                for (int i = 0; i < positions.Length; i++)
+                    desired[i] = steering.DesiredVelocity(i, positions, velocities, new RiderSample[0], cantoCalm);
+                for (int i = 0; i < positions.Length; i++)
+                {
+                    velocities[i] = desired[i];
+                    positions[i] += desired[i] * step;
+                }
+            }
+            Vector3 center = Vector3.zero;
+            foreach (Vector3 position in positions)
+                center += position / positions.Length;
+            float spread = 0f;
+            foreach (Vector3 position in positions)
+                spread += Vector3.Distance(position, center) / positions.Length;
+            return spread;
+        }
 
         [Test]
         public void Canto_GallopingRiderScaresACalmCowFarLess()

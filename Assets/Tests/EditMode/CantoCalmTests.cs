@@ -8,7 +8,8 @@ namespace Arreo.Tests.EditMode
     public class CantoCalmTests
     {
         private static CantoCalm CreateCalm() => new CantoCalm(radius: 30f, fullRadius: 15f,
-            fearReduction: 0.75f, cohesionBoost: 1.5f, riseSeconds: 2f, fadeSeconds: 4f);
+            fearReduction: 0.75f, cohesionBoost: 1.5f, riseSeconds: 2f, fadeSeconds: 4f,
+            stampedeShortening: 0.5f, regroupRadiusBoost: 1.5f);
 
         private static RiderSample Singer(float x) => new RiderSample(new Vector3(x, 0f, 0f), 4f, singing: true);
         private static RiderSample Silent(float x) => new RiderSample(new Vector3(x, 0f, 0f), 4f, singing: false);
@@ -91,6 +92,49 @@ namespace Arreo.Tests.EditMode
             Assert.That(calm.FearScale(0f), Is.EqualTo(1f));
             Assert.That(calm.FearScale(1f), Is.EqualTo(0.25f).Within(0.0001f));
             Assert.That(calm.FearScale(0.5f), Is.EqualTo(0.625f).Within(0.0001f));
+        }
+
+        [Test]
+        public void StampedeTimeScale_FullCalmLivesThePanicTwiceAsFast()
+        {
+            CantoCalm calm = CreateCalm();
+
+            Assert.That(calm.StampedeTimeScale(0f), Is.EqualTo(1f));
+            Assert.That(calm.StampedeTimeScale(1f), Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(calm.StampedeTimeScale(0.5f), Is.EqualTo(1f / 0.75f).Within(0.0001f));
+        }
+
+        [Test]
+        public void Barajustada_ACowThatFullyHearsTheCantoPanicsHalfAsLong()
+        {
+            CantoCalm calm = CreateCalm();
+            var stampede = new Stampede(holdSeconds: 5f, fadeSeconds: 6f);
+            stampede.Trigger(Vector3.zero);
+
+            Assert.That(SecondsOfPanic(stampede, calm.StampedeTimeScale(0f)), Is.EqualTo(11f).Within(0.05f));
+            Assert.That(SecondsOfPanic(stampede, calm.StampedeTimeScale(1f)), Is.EqualTo(5.5f).Within(0.05f));
+        }
+
+        [Test]
+        public void CohesionRadiusScale_FullCalmLooksForHerdMatesFarther()
+        {
+            CantoCalm calm = CreateCalm();
+
+            Assert.That(calm.CohesionRadiusScale(0f), Is.EqualTo(1f));
+            Assert.That(calm.CohesionRadiusScale(1f), Is.EqualTo(2.5f).Within(0.0001f));
+        }
+
+        // A cow's own stampede clock runs timeScale times as fast; how long until it's calm again.
+        private static float SecondsOfPanic(Stampede stampede, float timeScale)
+        {
+            const float step = 0.01f;
+            float age = 0f, seconds = 0f;
+            while (stampede.IntensityAt(age) > 0f && seconds < 60f)
+            {
+                age += step * timeScale;
+                seconds += step;
+            }
+            return seconds;
         }
 
         [Test]

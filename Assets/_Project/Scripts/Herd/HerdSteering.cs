@@ -68,6 +68,7 @@ namespace Arreo.Herd
         {
             float fearScale = _canto != null ? _canto.FearScale(cantoCalm) : 1f;
             float cohesionScale = _canto != null ? _canto.CohesionScale(cantoCalm) : 1f;
+            float cohesionRadius = _neighborRadius * (_canto != null ? _canto.CohesionRadiusScale(cantoCalm) : 1f);
             Vector3 position = positions[self];
             Vector3 flee = Vector3.zero;
             float panic = 0f;
@@ -86,7 +87,7 @@ namespace Arreo.Herd
             Vector3 velocity =
                 BoidRules.Separation(self, positions, _separationRadius) * (_separationStrength * (1f + panic))
                 + BoidRules.Alignment(self, positions, velocities, _neighborRadius) * (_alignmentWeight * calm)
-                + BoidRules.Cohesion(self, positions, _neighborRadius) * (_cohesionStrength * calm * cohesionScale)
+                + BoidRules.Cohesion(self, positions, cohesionRadius) * (_cohesionStrength * calm * cohesionScale)
                 + flee;
 
             return Vector3.ClampMagnitude(velocity, Mathf.Lerp(_fleeSpeed, _panicSpeed, panic));

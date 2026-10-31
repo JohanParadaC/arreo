@@ -332,6 +332,35 @@ namespace Arreo.Tests.PlayMode
             Assert.That(_errors, Is.Empty, "Console errors or warnings while singing:\n" + string.Join("\n", _errors));
         }
 
+        [UnityTest]
+        public IEnumerator Hosting_SingingRightAfterABarajustada_CalmsTheCowsThatHearItSooner()
+        {
+            // B near the herd, then V right away: the moment the canto has to feel right.
+            ActiveHerd herd = NetworkHerd.Instance.Herd;
+            MoveLocalRiderTo(herd.transform.position + new Vector3(0f, 0.05f, -8f));
+            yield return new WaitForSeconds(0.5f);
+
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                yield return Press(keyboard, Key.B);
+                Assert.That(herd.StampedeIntensity, Is.EqualTo(1f), "B did not start a barajustada");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.V));
+
+                // Without the canto every cow panics for 5 s and fades for 6 more: 8 s in, it's still at half.
+                yield return new WaitForSeconds(7.8f);
+                Assert.That(NetworkRider.Local.Canto.IsSinging, Is.True);
+                float calmest = Enumerable.Range(0, herd.Count).Where(i => herd.Present[i]).Min(herd.StampedePanicOf);
+                Assert.That(calmest, Is.LessThan(0.1f), "no cow that heard the canto got over the barajustada sooner");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+            Assert.That(_errors, Is.Empty, "Console errors or warnings while singing in a barajustada:\n" + string.Join("\n", _errors));
+        }
+
         private static IEnumerator Press(Keyboard keyboard, Key key)
         {
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));

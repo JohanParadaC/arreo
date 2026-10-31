@@ -8,7 +8,8 @@ namespace Arreo.Herd
     /// each physics step. Cows keep their Rigidbody so a rope can pull them later. A cow that
     /// leaves the herd (sold, D29: for good) is hidden but keeps its index, so the network ids of
     /// the others don't shift; the herd only steers the cows still in it. A rider singing the canto
-    /// calms the cows that hear it (<see cref="CantoCalm"/>).
+    /// calms the cows that hear it (<see cref="CantoCalm"/>), and in a barajustada each cow keeps its
+    /// own clock, which the canto speeds up.
     /// </summary>
     public sealed class ActiveHerd : MonoBehaviour
     {
@@ -30,6 +31,8 @@ namespace Arreo.Herd
         private bool[] _present = new bool[0];
         // How calm the canto has made each cow (0-1); it builds up and lingers, see CantoCalm.
         private float[] _calm = new float[0];
+        // Each cow's own clock into the current barajustada: it runs faster for cows that hear the canto.
+        private float[] _panicAge = new float[0];
         // The cows still in the herd, packed together for the steering rules (sold ones would still pull their neighbors).
         private readonly List<int> _steerIndices = new List<int>();
         private readonly List<Vector3> _steerPositions = new List<Vector3>();
@@ -93,14 +96,27 @@ namespace Arreo.Herd
             }
         }
 
-        /// <summary>How strong the current barajustada is, 0 (calm) to 1 (full panic).</summary>
-        public float StampedeIntensity => _stampede != null ? _stampede.Intensity : 0f;
+        /// <summary>
+        /// How strong the current barajustada is: the most panicked cow in the herd, 0 (calm) to 1
+        /// (full panic). Cows that hear the canto calm down sooner than the rest.
+        /// </summary>
+        public float StampedeIntensity { get; private set; }
 
         /// <summary>Barajustada: the whole herd bolts away from <paramref name="origin"/>.</summary>
-        public void TriggerStampede(Vector3 origin) => _stampede?.Trigger(origin);
+        public void TriggerStampede(Vector3 origin)
+        {
+            if (_stampede == null)
+                return;
+            _stampede.Trigger(origin);
+            System.Array.Clear(_panicAge, 0, _panicAge.Length);
+            StampedeIntensity = 1f;
+        }
 
         /// <summary>Overrides the herd size; only has an effect before Start.</summary>
         public void SetCount(int count) => _count = count;
+
+        /// <summary>Host: how panicked this cow still is by the current barajustada, 0 to 1.</summary>
+        public float StampedePanicOf(int cow) => _stampede != null ? _stampede.IntensityAt(_panicAge[cow]) : 0f;
 
         /// <summary>Sets up a herd created from code; call before Start.</summary>
         public void Configure(HerdSettings settings, Rigidbody cowPrefab, Rigidbody rider, int count)
@@ -202,6 +218,8 @@ namespace Arreo.Herd
             _positions[index] = position;
             _velocities[index] = Vector3.zero;
             _calm[index] = 0f;
+            // Put back by hand (restock, a loaded game): standing calm, past any barajustada.
+            _panicAge[index] = float.PositiveInfinity;
             _yaws[index] = rotation.eulerAngles.y;
         }
 
@@ -219,6 +237,7 @@ namespace Arreo.Herd
             _velocities = new Vector3[count];
             _yaws = new float[count];
             _calm = new float[count];
+            _panicAge = new float[count];
             _present = new bool[count];
             for (int i = 0; i < count; i++)
                 _present[i] = true;
@@ -235,8 +254,6 @@ namespace Arreo.Herd
             IReadOnlyList<RiderSample> riders = _riderSource != null ? _riderSource() : SingleRider();
             float dt = Time.fixedDeltaTime;
             _stampede.Tick(dt);
-            float panic = _stampede.Intensity;
-            float acceleration = Mathf.Lerp(_settings.Acceleration, _settings.PanicAcceleration, panic);
 
             _steerIndices.Clear();
             _steerPositions.Clear();
@@ -251,12 +268,19 @@ namespace Arreo.Herd
             }
 
             int calmed = 0;
+            float strongestPanic = 0f;
             for (int j = 0; j < _steerIndices.Count; j++)
             {
                 int i = _steerIndices[j];
                 _calm[i] = _canto.Step(_calm[i], _canto.Hearing(_positions[i], riders), dt);
                 if (_calm[i] >= 0.5f)
                     calmed++;
+                // A cow that hears the canto lives the barajustada faster: it stops bolting sooner.
+                _panicAge[i] += dt * _canto.StampedeTimeScale(_calm[i]);
+                float panic = _stampede.IntensityAt(_panicAge[i]);
+                strongestPanic = Mathf.Max(strongestPanic, panic);
+                float acceleration = Mathf.Lerp(_settings.Acceleration, _settings.PanicAcceleration, panic);
+
                 Vector3 desired = _steering.DesiredVelocity(j, _steerPositions, _steerVelocities, riders, _calm[i]);
                 if (panic > 0f)
                     desired = Vector3.Lerp(desired, _steering.StampedeVelocity(j, _steerPositions, _stampede.Origin, 1f), panic);
@@ -275,6 +299,7 @@ namespace Arreo.Herd
                 }
             }
             CalmedByCanto = calmed;
+            StampedeIntensity = strongestPanic;
         }
 
         private readonly RiderSample[] _single = new RiderSample[1];

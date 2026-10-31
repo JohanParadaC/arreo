@@ -21,19 +21,22 @@ namespace Arreo.Herd
 
         public Vector3 Origin { get; private set; }
 
-        public float Intensity
-        {
-            get
-            {
-                if (!_triggered)
-                    return 0f;
-                if (_elapsed <= _holdSeconds)
-                    return 1f;
-                return Mathf.Clamp01(1f - (_elapsed - _holdSeconds) / _fadeSeconds);
-            }
-        }
+        public float Intensity => IntensityAt(_elapsed);
 
         public bool IsActive => Intensity > 0f;
+
+        /// <summary>
+        /// How strong the barajustada is <paramref name="elapsed"/> seconds into it. A cow that hears the
+        /// cabrestero's canto keeps its own clock that runs faster (<see cref="CantoCalm.StampedeTimeScale"/>).
+        /// </summary>
+        public float IntensityAt(float elapsed)
+        {
+            if (!_triggered)
+                return 0f;
+            if (elapsed <= _holdSeconds)
+                return 1f;
+            return Mathf.Clamp01(1f - (elapsed - _holdSeconds) / _fadeSeconds);
+        }
 
         public void Trigger(Vector3 origin)
         {

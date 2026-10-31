@@ -9,6 +9,24 @@ namespace Arreo.Tests.EditMode
         private const float Tolerance = 0.0001f;
 
         [Test]
+        public void IntensityAt_FollowsTheHoldAndFadeForAnyCowsClock()
+        {
+            var stampede = new Stampede(4f, 4f);
+            stampede.Trigger(Vector3.zero);
+
+            Assert.That(stampede.IntensityAt(3f), Is.EqualTo(1f));
+            Assert.That(stampede.IntensityAt(6f), Is.EqualTo(0.5f).Within(Tolerance));
+            Assert.That(stampede.IntensityAt(8f), Is.EqualTo(0f));
+            Assert.That(stampede.IntensityAt(20f), Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void IntensityAt_NeverTriggered_IsZero()
+        {
+            Assert.That(new Stampede(4f, 4f).IntensityAt(1f), Is.EqualTo(0f));
+        }
+
+        [Test]
         public void NotTriggered_IsInactive()
         {
             var stampede = new Stampede(holdSeconds: 4f, fadeSeconds: 4f);

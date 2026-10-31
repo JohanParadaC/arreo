@@ -67,6 +67,10 @@ namespace Arreo.Herd
         [SerializeField, Min(0.01f)] private float _cantoRiseSeconds = 1.5f;
         [Tooltip("Seconds the calm takes to fade once the canto stops or the cow is out of earshot: the herd stays calm for a while after the song.")]
         [SerializeField, Min(0.01f)] private float _cantoFadeSeconds = 6f;
+        [Tooltip("Share of a barajustada's panic a cow that fully hears the canto skips (0-0.9): 0.5 = it bolts and calms down in half the time (hold and fade). Cows out of earshot panic for the full time.")]
+        [SerializeField, Range(0f, 0.9f)] private float _cantoStampedeShortening = 0.5f;
+        [Tooltip("How much farther a cow that hears the canto looks for herd mates to rejoin: 1.5 = 2.5 times the neighbor radius (12 m -> 30 m), so a herd scattered by a barajustada finds itself again.")]
+        [SerializeField, Min(0f)] private float _cantoRegroupRadiusBoost = 1.5f;
 
         public float Acceleration => _acceleration;
         public float PanicAcceleration => _panicAcceleration;
@@ -82,6 +86,6 @@ namespace Arreo.Herd
             _flightZoneSpeed, CreateCantoCalm());
 
         public CantoCalm CreateCantoCalm() => new CantoCalm(_cantoRadius, _cantoFullRadius, _cantoFearReduction,
-            _cantoCohesionBoost, _cantoRiseSeconds, _cantoFadeSeconds);
+            _cantoCohesionBoost, _cantoRiseSeconds, _cantoFadeSeconds, _cantoStampedeShortening, _cantoRegroupRadiusBoost);
     }
 }
