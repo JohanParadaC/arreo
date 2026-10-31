@@ -22,8 +22,8 @@ namespace Arreo.Tests.PlayMode
     /// The cabrestero's canto with two real players over Tugboat (rule 4). This Editor hosts with
     /// its own test canto; the Network Test Player joins as a client with another one, stands
     /// south of the herd and sings (ProtoCantoBot). The client's recording has to reach the host
-    /// intact, the host's has to reach the client, and the host's herd has to calm down where the
-    /// canto is heard, and only there.
+    /// intact (it travels compressed), the host's has to reach the client, and the host's herd has
+    /// to calm down where the canto is heard, and only there.
     /// </summary>
     [PrebuildSetup(typeof(NetworkTestPlayerBuild))]
     public class ProtoCantoTests
@@ -97,14 +97,17 @@ namespace Arreo.Tests.PlayMode
             Assert.That(FlatDistance(canto.transform.position, SingerPosition), Is.LessThan(1f), "the client never reached its spot");
             int[] nearCows = { 0, 1, 2, 3 };
             int[] farCows = { 4, 5, 6 };
-            PlaceCows(herd, nearCows, SingerPosition + new Vector3(0f, 0f, 10f));
-            PlaceCows(herd, farCows, SingerPosition + new Vector3(0f, 0f, -60f));
+            // The near ones go on the far side of the singer, 40 m from the herd: past the 30 m a calm cow
+            // looks for herd mates in, or they would rightly walk back to it.
+            PlaceCows(herd, nearCows, SingerPosition + new Vector3(0f, 0f, -10f));
+            PlaceCows(herd, farCows, SingerPosition + new Vector3(0f, 0f, -70f));
 
             // The recording comes in parts, a few a second; the host checks it before keeping it.
             for (float t = 0f; t < 30f && !canto.HostHasOwnCanto && !_client.HasExited; t += Time.unscaledDeltaTime)
                 yield return null;
             Assert.That(canto.HostHasOwnCanto, Is.True, $"the client's canto never reached the host (log: {_clientLog})");
-            Assert.That(canto.Canto, Is.EqualTo(_clientCanto), "the host rebuilt a different canto");
+            Assert.That(canto.Canto, Is.EqualTo(TestVoice.Compressed(_clientCanto)), "the host rebuilt a different canto");
+            Assert.That(canto.Canto.Length, Is.LessThan(_clientCanto.Length / 3), "the canto did not travel compressed");
 
             // The client holds the canto button: the host's herd hears it.
             for (float t = 0f; t < 15f && !canto.IsSinging && !_client.HasExited; t += Time.unscaledDeltaTime)
@@ -146,8 +149,9 @@ namespace Arreo.Tests.PlayMode
             Debug.Log($"[ProtoCantoTests] client: {string.Join(", ", seen)}");
             Assert.That(seen["timedOut"], Is.EqualTo("False"), "the client gave up waiting for the host's canto");
             Assert.That(seen["ownAccepted"], Is.EqualTo("True"));
-            Assert.That(int.Parse(seen["hostCantoBytes"]), Is.EqualTo(_hostCanto.Length), "the client got a different canto from the host");
-            Assert.That(uint.Parse(seen["hostCantoChecksum"]), Is.EqualTo(CantoParts.Checksum(_hostCanto)));
+            byte[] hostCompressed = TestVoice.Compressed(_hostCanto);
+            Assert.That(int.Parse(seen["hostCantoBytes"]), Is.EqualTo(hostCompressed.Length), "the client got a different canto from the host");
+            Assert.That(uint.Parse(seen["hostCantoChecksum"]), Is.EqualTo(CantoParts.Checksum(hostCompressed)));
         }
 
         private static float FlatDistance(Vector3 a, Vector3 b) => Vector2.Distance(new Vector2(a.x, a.z), new Vector2(b.x, b.z));

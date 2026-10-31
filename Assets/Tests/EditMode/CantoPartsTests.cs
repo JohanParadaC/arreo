@@ -168,6 +168,26 @@ namespace Arreo.Tests.EditMode
         }
 
         [Test]
+        public void ACompressedCantoSplitAndRebuilt_DecodesToTheSameAudio()
+        {
+            var samples = new float[16000 * 15];
+            for (int i = 0; i < samples.Length; i++)
+                samples[i] = 0.6f * (float)Math.Sin(2.0 * Math.PI * 220.0 * i / 16000);
+            byte[] compressed = ImaAdpcm.Encode(samples, 16000);
+            var assembler = new CantoAssembler(MaxBytes, PartBytes);
+
+            List<CantoPart> parts = CantoParts.Split(compressed, PartBytes);
+            for (int i = parts.Count - 1; i >= 0; i--)
+                assembler.Add(parts[i].Index, parts[i].Count, parts[i].TotalBytes, parts[i].Data);
+
+            // The longest canto travels in 15 parts instead of 59.
+            Assert.That(parts, Has.Count.EqualTo(15));
+            Assert.That(assembler.Result, Is.EqualTo(compressed));
+            Assert.That(ImaAdpcm.TryDecode(assembler.Result, out float[] back, out _, out string problem), Is.True, problem);
+            Assert.That(back, Has.Length.EqualTo(samples.Length));
+        }
+
+        [Test]
         public void Checksum_SameBytesGiveTheSameSum_OneChangedByteDoesNot()
         {
             byte[] a = Bytes(5000);

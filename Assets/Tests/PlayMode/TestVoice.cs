@@ -34,6 +34,13 @@ namespace Arreo.Tests.PlayMode
             return wav;
         }
 
+        /// <summary>A recorded canto as it travels over the network (IMA ADPCM), to compare with what arrived.</summary>
+        public static byte[] Compressed(byte[] wav)
+        {
+            WavCodec.TryDecode(wav, out float[] samples, out int rate, out _);
+            return ImaAdpcm.Encode(samples, rate);
+        }
+
         public static void Delete(string folder)
         {
             if (folder != null && Directory.Exists(folder))

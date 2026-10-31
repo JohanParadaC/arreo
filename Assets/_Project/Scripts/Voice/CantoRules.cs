@@ -65,7 +65,12 @@ namespace Arreo.Voice
         public int SampleRate { get; }
 
         /// <summary>Size of the longest canto accepted from the network, as a WAV.</summary>
-        public int MaxWavBytes => WavCodec.HeaderBytes + (int)Math.Ceiling((_maxSeconds + LengthTolerance) * SampleRate) * 2;
+        public int MaxWavBytes => WavCodec.HeaderBytes + MaxSamples * 2;
+
+        /// <summary>Size of the longest canto accepted from the network, compressed (<see cref="ImaAdpcm"/>).</summary>
+        public int MaxCompressedBytes => ImaAdpcm.EncodedBytes(MaxSamples);
+
+        private int MaxSamples => (int)Math.Ceiling((_maxSeconds + LengthTolerance) * SampleRate);
 
         /// <param name="data">The microphone clip's samples (interleaved if more than one channel).</param>
         /// <param name="recordedFrames">How much of the clip was recorded before the player stopped.</param>
@@ -90,10 +95,16 @@ namespace Arreo.Voice
         }
 
         /// <summary>Whether <paramref name="wav"/> is a canto this game plays, and its samples if so.</summary>
-        public bool Check(byte[] wav, out float[] samples, out string problem)
+        public bool Check(byte[] wav, out float[] samples, out string problem) =>
+            WavCodec.TryDecode(wav, out samples, out int rate, out problem) && CheckSamples(ref samples, rate, out problem);
+
+        /// <summary>The same, for a canto as it travels over the network (<see cref="ImaAdpcm"/>).</summary>
+        public bool CheckCompressed(byte[] data, out float[] samples, out string problem) =>
+            ImaAdpcm.TryDecode(data, out samples, out int rate, out problem) && CheckSamples(ref samples, rate, out problem);
+
+        private bool CheckSamples(ref float[] samples, int rate, out string problem)
         {
-            if (!WavCodec.TryDecode(wav, out samples, out int rate, out problem))
-                return false;
+            problem = "";
             float seconds = (float)samples.Length / rate;
             if (rate != SampleRate)
                 problem = $"sampled at {rate} Hz, not {SampleRate}";

@@ -30,7 +30,7 @@ namespace Arreo.Voice
         [Header("Network (rule 4: sent in parts, once per session)")]
         [Tooltip("Bytes per part. FishNet won't take more than 20 KB from a client in one message, so keep it well under that.")]
         [SerializeField, Range(1024, 16384)] private int _partBytes = 8192;
-        [Tooltip("Parts sent per second to each player. 6 x 8 KB = 48 KB/s: a 15 s canto (480 KB) arrives in about 10 s without crowding the game's own messages.")]
+        [Tooltip("Parts sent per second to each player. 6 x 8 KB = 48 KB/s: a 15 s canto, compressed to about 120 KB (IMA ADPCM), arrives in under 3 s without crowding the game's own messages.")]
         [SerializeField, Min(1f)] private float _partsPerSecond = 6f;
 
         [Header("Playback (3D, from the rider)")]

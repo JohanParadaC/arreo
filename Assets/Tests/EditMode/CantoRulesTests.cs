@@ -156,6 +156,40 @@ namespace Arreo.Tests.EditMode
         }
 
         [Test]
+        public void CheckCompressed_AcceptsAGoodCanto_AndItSoundsLikeTheOriginal()
+        {
+            float[] original = Tone(9f);
+
+            Assert.That(CreateRules().CheckCompressed(ImaAdpcm.Encode(original, Rate), out float[] samples, out string problem), Is.True, problem);
+            Assert.That(samples, Has.Length.EqualTo(original.Length));
+            for (int i = 0; i < samples.Length; i += 97)
+                Assert.That(samples[i], Is.EqualTo(original[i]).Within(0.05f), $"sample {i}");
+        }
+
+        [Test]
+        public void CheckCompressed_RejectsWhatIsNotACantoOfThisGame()
+        {
+            CantoRules rules = CreateRules();
+
+            Assert.That(rules.CheckCompressed(ImaAdpcm.Encode(Tone(9f, 22050), 22050), out _, out string rate), Is.False, "other sample rate");
+            Assert.That(rate, Is.Not.Empty);
+            Assert.That(rules.CheckCompressed(ImaAdpcm.Encode(Tone(20f), Rate), out _, out _), Is.False, "too long");
+            Assert.That(rules.CheckCompressed(ImaAdpcm.Encode(Tone(2f), Rate), out _, out _), Is.False, "too short");
+            Assert.That(rules.CheckCompressed(WavCodec.Encode(Tone(9f), Rate), out _, out _), Is.False, "an uncompressed WAV");
+            Assert.That(rules.CheckCompressed(new byte[] { 1, 2, 3 }, out _, out _), Is.False, "garbage");
+        }
+
+        [Test]
+        public void MaxCompressedBytes_FitsTheLongestCanto_InAboutAQuarterOfTheWav()
+        {
+            CantoRules rules = CreateRules();
+            byte[] longest = ImaAdpcm.Encode(new float[15 * Rate], Rate);
+
+            Assert.That(rules.MaxCompressedBytes, Is.GreaterThanOrEqualTo(longest.Length));
+            Assert.That(rules.MaxCompressedBytes, Is.LessThan(rules.MaxWavBytes / 3.5f));
+        }
+
+        [Test]
         public void MaxWavBytes_FitsTheLongestCanto()
         {
             CantoRules rules = CreateRules();

@@ -9,8 +9,9 @@ namespace Arreo.Net
 {
     /// <summary>
     /// One rider's canto on the network (rule 4). When a player joins, their own recording (if
-    /// they made one) goes to the host in parts; the host checks it and passes it on to everyone
-    /// else, once per session, including players who join later. Holding the canto button asks
+    /// they made one) goes to the host in parts, compressed to a quarter (<see cref="ImaAdpcm"/>);
+    /// the host checks it and passes it on to everyone else, once per session, including players
+    /// who join later. Holding the canto button asks
     /// the host to sing: every machine plays it in 3D from this rider (the fixed canto if there's
     /// no recording, or while it's still on its way), and the host's herd hears it.
     /// </summary>
@@ -29,7 +30,7 @@ namespace Arreo.Net
         private readonly HashSet<int> _deliveredTo = new HashSet<int>();
         private CantoRules _rules;
         private CantoAssembler _incoming;
-        // The recording as a WAV: the owner's own, or the one that arrived. The host passes it on.
+        // The recording as it travels (IMA ADPCM, a quarter of the WAV): the owner's own, or the one that arrived. The host passes it on.
         private byte[] _canto;
         private List<CantoPart> _parts;
         private AudioClip _clip;
@@ -53,7 +54,10 @@ namespace Arreo.Net
         /// <summary>The host got this player's own recording and checked it; everyone can see this.</summary>
         public bool HostHasOwnCanto => _hostHasOwnCanto.Value;
 
-        /// <summary>The recording this machine plays for this rider, or null while it uses the fixed canto.</summary>
+        /// <summary>
+        /// This rider's recording as it travels over the network (compressed, <see cref="ImaAdpcm"/>), or null
+        /// while this machine sings the fixed canto for them.
+        /// </summary>
         public byte[] Canto => _canto;
 
         /// <summary>Owner: share of its own recording sent to the host (1 when there's nothing to send).</summary>
@@ -105,17 +109,18 @@ namespace Arreo.Net
                 Debug.LogWarning($"[NetworkCanto] Your recorded canto can't be used ({problem}); singing the fixed one.");
                 return;
             }
-            Keep(wav, samples);
+            // The owner hears its own recording as it was; the others get it compressed.
+            Keep(ImaAdpcm.Encode(samples, Rules.SampleRate), samples);
             if (IsServerInitialized)
                 ServerAccept();
             else
                 _nextUpload = Time.time;
         }
 
-        private void Keep(byte[] wav, float[] samples)
+        private void Keep(byte[] compressed, float[] samples)
         {
-            _canto = wav;
-            _parts = CantoParts.Split(wav, _settings.PartBytes);
+            _canto = compressed;
+            _parts = CantoParts.Split(compressed, _settings.PartBytes);
             _clip = _settings.CreateClip($"Canto {OwnerId}", samples);
         }
 
@@ -151,7 +156,7 @@ namespace Arreo.Net
         {
             if (_hostHasOwnCanto.Value)
                 return;
-            _incoming ??= new CantoAssembler(Rules.MaxWavBytes, _settings.PartBytes);
+            _incoming ??= new CantoAssembler(Rules.MaxCompressedBytes, _settings.PartBytes);
             CantoPartResult result = _incoming.Add(index, count, totalBytes, data);
             if (result == CantoPartResult.Rejected)
             {
@@ -164,7 +169,7 @@ namespace Arreo.Net
             if (result != CantoPartResult.Complete)
                 return;
 
-            if (!Rules.Check(_incoming.Result, out float[] samples, out string problem))
+            if (!Rules.CheckCompressed(_incoming.Result, out float[] samples, out string problem))
             {
                 Debug.LogWarning($"[NetworkCanto] Player {OwnerId}'s canto is not a canto ({problem}); they'll sing the fixed one.");
                 return;
@@ -231,10 +236,10 @@ namespace Arreo.Net
         {
             if (_canto != null)
                 return;
-            _incoming ??= new CantoAssembler(Rules.MaxWavBytes, _settings.PartBytes);
+            _incoming ??= new CantoAssembler(Rules.MaxCompressedBytes, _settings.PartBytes);
             if (_incoming.Add(index, count, totalBytes, data) != CantoPartResult.Complete)
                 return;
-            if (Rules.Check(_incoming.Result, out float[] samples, out string problem))
+            if (Rules.CheckCompressed(_incoming.Result, out float[] samples, out string problem))
                 Keep(_incoming.Result, samples);
             else
                 Debug.LogWarning($"[NetworkCanto] Player {OwnerId}'s canto can't be played ({problem}); using the fixed one.");
