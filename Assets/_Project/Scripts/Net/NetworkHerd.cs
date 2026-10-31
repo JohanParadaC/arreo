@@ -215,12 +215,13 @@ namespace Arreo.Net
             }
         }
 
-        // Host: every player's horse scares the herd (D73).
+        // Host: every player's horse scares the herd (D73), and a rider singing the canto calms it.
         private IReadOnlyList<RiderSample> GatherRiders()
         {
             _riders.Clear();
             foreach (NetworkRider rider in NetworkRider.All)
-                _riders.Add(new RiderSample(rider.transform.position, rider.PlanarVelocity.magnitude));
+                _riders.Add(new RiderSample(rider.transform.position, rider.PlanarVelocity.magnitude,
+                    rider.Canto != null && rider.Canto.IsSinging));
             return _riders;
         }
     }

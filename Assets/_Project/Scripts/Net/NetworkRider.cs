@@ -31,6 +31,7 @@ namespace Arreo.Net
         [SerializeField] private LassoInput _lasso;
         [SerializeField] private RiderMount _mount;
         [SerializeField] private NetworkRope _rope;
+        [SerializeField] private NetworkCanto _canto;
         [Tooltip("Point the local camera follows.")]
         [SerializeField] private Transform _cameraTarget;
 
@@ -57,6 +58,7 @@ namespace Arreo.Net
         public LassoInput Lasso => _lasso;
         public RiderMount Mount => _mount;
         public NetworkRope Rope => _rope;
+        public NetworkCanto Canto => _canto;
         public Transform CameraTarget => _cameraTarget;
         public Rigidbody Body => _horse.GetComponent<Rigidbody>();
 

@@ -39,6 +39,7 @@ namespace Arreo.Herd
         private Stampede _stampede;
         private System.Func<IReadOnlyList<RiderSample>> _riderSource;
 
+        public HerdSettings Settings => _settings;
         public int Count => _cows.Count;
         public IReadOnlyList<Vector3> Positions => _positions;
         public IReadOnlyList<float> Yaws => _yaws;
