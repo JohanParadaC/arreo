@@ -1,5 +1,6 @@
 using System;
 using Arreo.Net;
+using Arreo.Voice;
 using FishNet.Managing;
 using FishNet.Managing.Transporting;
 using UnityEngine;
@@ -7,9 +8,10 @@ using UnityEngine;
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (weeks 5-8 prototype): minimal network menu. "Continuar partida" (if there's a
+    /// DISPOSABLE (weeks 5-10 prototype): minimal network menu. "Continuar partida" (if there's a
     /// save) hosts the saved game, "Crear partida" hosts a new one (server and client in this game),
     /// "Unirse" joins a host on this computer over Tugboat. A toggle simulates a bad connection.
+    /// "Grabar mi canto" opens <see cref="ProtoCantoMenu"/>; another toggle mutes the other players' cantos.
     /// Command line: -arreoNet host|continue|client, -arreoLatency &lt;ms per direction&gt;,
     /// -arreoLoss &lt;0-1&gt;; the FPS benchmark hosts by itself.
     /// </summary>
@@ -17,6 +19,8 @@ namespace Arreo.Prototype
     {
         [SerializeField] private NetworkManager _networkManager;
         [SerializeField] private NetworkSave _save;
+        [SerializeField] private ProtoCantoMenu _cantoMenu;
+        [SerializeField] private VoiceProfile _voice;
 
         [Header("Simulated bad connection")]
         [Tooltip("Delay added to every packet this game sends (ms). Both players simulating 75 ms = 150 ms round trip (ping).")]
@@ -26,7 +30,9 @@ namespace Arreo.Prototype
         [SerializeField] private bool _simulateBadConnection;
 
         private GUIStyle _title;
+        private GUIStyle _small;
         private bool _hasSave;
+        private bool _hasCanto;
         private float _nextSaveCheck;
 
         private void Start()
@@ -104,15 +110,19 @@ namespace Arreo.Prototype
                 return;
             }
 
+            if (_cantoMenu.IsOpen)
+                return;
             _title ??= new GUIStyle(GUI.skin.label) { fontSize = 26, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            _small ??= new GUIStyle(GUI.skin.label) { fontSize = 11, wordWrap = true };
             // Checked each time the menu is drawn would mean a disk read per frame; once a second is plenty.
             if (Time.unscaledTime >= _nextSaveCheck)
             {
                 _nextSaveCheck = Time.unscaledTime + 1f;
                 _hasSave = _save.HasSave;
+                _hasCanto = _voice.HasOwnCanto;
             }
             float extra = _hasSave ? 55f : 0f;
-            var panel = new Rect(Screen.width / 2f - 200, Screen.height / 2f - 120 - extra / 2f, 400, 240 + extra);
+            var panel = new Rect(Screen.width / 2f - 200, Screen.height / 2f - 185 - extra / 2f, 400, 370 + extra);
             GUI.Box(panel, GUIContent.none);
             GUI.Label(new Rect(panel.x, panel.y + 10, panel.width, 40), "Arreo", _title);
             if (_hasSave && GUI.Button(new Rect(panel.x + 50, panel.y + 65, 300, 45), "Continuar partida"))
@@ -123,6 +133,17 @@ namespace Arreo.Prototype
                 Join();
             _simulateBadConnection = GUI.Toggle(new Rect(panel.x + 30, panel.y + 180 + extra, 360, 40), _simulateBadConnection,
                 $" Simular mala conexión ({_latencyPerDirection * 2} ms de ping, {_packetLoss:P0} de pérdida)");
+
+            // The canto (rule 4): recorded once, kept on this computer, sent to the players of each game.
+            if (GUI.Button(new Rect(panel.x + 50, panel.y + 225 + extra, 300, 40), _hasCanto ? "Mi canto (grabado)" : "Grabar mi canto"))
+            {
+                _cantoMenu.Open();
+                // Look at the profile again once the canto menu closes.
+                _nextSaveCheck = 0f;
+            }
+            _voice.MuteOtherCantos = GUI.Toggle(new Rect(panel.x + 30, panel.y + 272 + extra, 360, 25), _voice.MuteOtherCantos,
+                " Silenciar los cantos de los demás jugadores");
+            GUI.Label(new Rect(panel.x + 30, panel.y + 302 + extra, 340, 60), ProtoCantoMenu.PrivacyNotice, _small);
         }
 
         private static bool TryGetArg(string[] args, string name, out string value)

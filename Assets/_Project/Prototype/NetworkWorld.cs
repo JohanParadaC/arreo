@@ -9,10 +9,11 @@ using UnityEngine.InputSystem;
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (weeks 6-8 prototype): the shared bits of Proto_Sabana. Any player can ask for a
+    /// DISPOSABLE (weeks 6-10 prototype): the shared bits of Proto_Sabana. Any player can ask for a
     /// barajustada (B), to work the corral gate (Interact, when near it), to restock the herd so
     /// the drive and sale can be repeated (R, debug), or to save (F5) and load (F9); the host
-    /// applies it and every machine sees the same gate, the thunder and the corral count and clock.
+    /// applies it and every machine sees the same gate, the thunder and the corral count and clock,
+    /// and how many cows the canto has calmed.
     /// </summary>
     public sealed class NetworkWorld : NetworkBehaviour
     {
@@ -35,6 +36,7 @@ namespace Arreo.Prototype
         private readonly SyncVar<bool> _started = new SyncVar<bool>();
         private readonly SyncVar<bool> _complete = new SyncVar<bool>();
         private readonly SyncVar<float> _stampede = new SyncVar<float>();
+        private readonly SyncVar<int> _calmedByCanto = new SyncVar<int>();
 
         private HerdDrive _drive;
         private float _nextSync;
@@ -48,6 +50,9 @@ namespace Arreo.Prototype
         public bool Started => _started.Value;
         public bool Complete => _complete.Value;
         public float StampedeIntensity => _stampede.Value;
+
+        /// <summary>Cows the canto has calmed at least halfway, as the host's herd counts them.</summary>
+        public int CalmedByCanto => _calmedByCanto.Value;
         public bool GateOpen => _gateOpen.Value;
         public bool LocalRiderNearGate => NetworkRider.Local != null && _gate.InReach(NetworkRider.Local.transform.position);
 
@@ -124,6 +129,7 @@ namespace Arreo.Prototype
                 _nextSync = Time.time + _syncInterval;
                 _elapsed.Value = _drive.ElapsedSeconds;
                 _stampede.Value = _herd.StampedeIntensity;
+                _calmedByCanto.Value = _herd.CalmedByCanto;
             }
         }
 

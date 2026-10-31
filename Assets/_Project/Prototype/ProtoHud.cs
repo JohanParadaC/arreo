@@ -3,14 +3,16 @@ using Arreo.Horse;
 using Arreo.Net;
 using Arreo.Player;
 using Arreo.Rope;
+using Arreo.Voice;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Arreo.Prototype
 {
     /// <summary>
-    /// DISPOSABLE (weeks 2-7 prototype): debug readout of speed and stamina, the corral, the rope,
-    /// the fair and the hato's money, plus cursor lock for the orbit camera. Replace with the real UI later.
+    /// DISPOSABLE (weeks 2-10 prototype): debug readout of speed and stamina, the corral, the rope,
+    /// the fair and the hato's money, the canto, plus cursor lock for the orbit camera. With the
+    /// cursor free (Esc) it shows the options. Replace with the real UI later.
     /// </summary>
     public sealed class ProtoHud : MonoBehaviour
     {
@@ -23,6 +25,7 @@ namespace Arreo.Prototype
         [SerializeField] private LassoInput _lasso;
         [SerializeField] private RiderMount _mount;
         [SerializeField] private RiderInput _riderInput;
+        [SerializeField] private VoiceProfile _voice;
 
         private IRopeSnapshotSource _rope;
 
@@ -47,9 +50,18 @@ namespace Arreo.Prototype
                 return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
                 LockCursor(false);
-            else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && !OverOptions())
                 LockCursor(true);
         }
+
+        // A click on the options box works the options instead of grabbing the cursor again.
+        private static bool OverOptions()
+        {
+            Vector2 mouse = Mouse.current.position.ReadValue();
+            return Cursor.lockState != CursorLockMode.Locked && OptionsRect().Contains(new Vector2(mouse.x, Screen.height - mouse.y));
+        }
+
+        private static Rect OptionsRect() => new Rect(Screen.width / 2f - 230, Screen.height / 2f - 70, 460, 140);
 
         private static void LockCursor(bool locked)
         {
@@ -68,19 +80,61 @@ namespace Arreo.Prototype
             bool driving = locomotion.IsDriving || (_riderInput != null && _riderInput.SlowWalkOn);
             string gait = locomotion.IsGalloping ? "GALOPE" : stamina.IsExhausted ? "AGOTADO" : driving ? "arreo" : "paso";
 
-            GUI.Box(new Rect(10, 10, 300, 125), GUIContent.none);
+            GUI.Box(new Rect(10, 10, 300, 145), GUIContent.none);
             GUI.Label(new Rect(20, 15, 280, 25), $"{locomotion.Speed * 3.6f:0} km/h  ({gait})", _style);
             GUI.Label(new Rect(20, 42, 280, 25), "Aguante", _style);
             GUI.color = stamina.IsExhausted ? Color.red : Color.green;
             GUI.DrawTexture(new Rect(100, 47, 190 * stamina.Normalized, 18), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(20, 70, 290, 62),
-                "WASD: riendas · Shift: galopar · C: arreo on/off\nClic der: apuntar · Clic izq: lanzar · Q: soltar\nB: trueno · R: reponer · F5/F9: guardar/cargar");
+            GUI.Label(new Rect(20, 70, 290, 80),
+                "WASD: riendas · Shift: galopar · C: arreo on/off\nClic der: apuntar · Clic izq: lanzar · Q: soltar\nB: trueno · R: reponer · F5/F9: guardar/cargar\nV (Y en el control): cantar · Esc: opciones");
 
             DrawDrive();
             DrawRope();
             DrawMoneyAndFair();
+            DrawCanto();
             DrawCrosshairAndBanner();
+            DrawOptions();
+        }
+
+        // The local rider's canto: which one plays, whether it reached the host, and what it does to the herd.
+        private void DrawCanto()
+        {
+            NetworkCanto canto = NetworkRider.Local != null ? NetworkRider.Local.Canto : null;
+            if (canto == null || !canto.IsSpawned)
+                return;
+
+            var box = new Rect(10, Screen.height - 75, 360, 65);
+            GUI.Box(box, GUIContent.none);
+            string which = canto.Canto == null ? "el canto fijo del juego"
+                : canto.HostHasOwnCanto ? "el tuyo (ya llegó al anfitrión)"
+                : $"el tuyo (enviando {canto.UploadProgress:P0}; mientras, el fijo)";
+            GUI.Label(new Rect(box.x + 10, box.y + 5, box.width - 20, 25), $"Canto: {which}");
+            int calmed = _world != null ? _world.CalmedByCanto : 0;
+            string herd = calmed == 1 ? "1 res lo oye y se calma" : $"{calmed} reses lo oyen y se calman";
+            if (canto.IsPlaying)
+            {
+                GUI.color = new Color(1f, 0.9f, 0.5f);
+                GUI.Label(new Rect(box.x + 10, box.y + 30, box.width - 20, 30), $"♪ Cantando… {herd}", _style);
+                GUI.color = Color.white;
+            }
+            else if (calmed > 0)
+                GUI.Label(new Rect(box.x + 10, box.y + 32, box.width - 20, 25), $"{herd}");
+            else
+                GUI.Label(new Rect(box.x + 10, box.y + 32, box.width - 20, 25), "Mantén V para cantarle a la manada");
+        }
+
+        // Esc frees the cursor; meanwhile the options are on screen.
+        private void DrawOptions()
+        {
+            if (_voice == null || Cursor.lockState == CursorLockMode.Locked)
+                return;
+            Rect box = OptionsRect();
+            GUI.Box(box, GUIContent.none);
+            GUI.Label(new Rect(box.x + 15, box.y + 8, box.width - 30, 25), "Opciones (clic fuera para volver al juego)", _style);
+            _voice.MuteOtherCantos = GUI.Toggle(new Rect(box.x + 15, box.y + 42, box.width - 30, 25), _voice.MuteOtherCantos,
+                " Silenciar los cantos de los demás jugadores");
+            GUI.Label(new Rect(box.x + 15, box.y + 75, box.width - 30, 60), ProtoCantoMenu.PrivacyNotice);
         }
 
         private void DrawMoneyAndFair()
@@ -146,14 +200,14 @@ namespace Arreo.Prototype
             };
             float tension01 = rope.Tension01;
 
-            GUI.Box(new Rect(10, 230, 300, 80), GUIContent.none);
-            GUI.Label(new Rect(20, 235, 280, 25), $"Soga: {state}  {tension01 * 100f:0} %", _style);
+            GUI.Box(new Rect(10, 250, 300, 80), GUIContent.none);
+            GUI.Label(new Rect(20, 255, 280, 25), $"Soga: {state}  {tension01 * 100f:0} %", _style);
             GUI.color = Color.Lerp(Color.green, Color.red, tension01);
-            GUI.DrawTexture(new Rect(20, 263, 280 * Mathf.Clamp01(tension01), 12), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(20, 283, 280 * Mathf.Clamp01(tension01), 12), Texture2D.whiteTexture);
             GUI.color = new Color(1f, 0.3f, 0.1f);
-            GUI.DrawTexture(new Rect(20, 280, 280 * rope.BreakProgress, 8), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(20, 300, 280 * rope.BreakProgress, 8), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(20, 288, 280, 20), "tensión · se revienta");
+            GUI.Label(new Rect(20, 308, 280, 20), "tensión · se revienta");
         }
 
         private void DrawCrosshairAndBanner()
@@ -191,12 +245,12 @@ namespace Arreo.Prototype
             float seconds = _world.Elapsed % 60f;
             string clock = $"{minutes}:{seconds:00}";
 
-            GUI.Box(new Rect(10, 140, 300, 85), GUIContent.none);
-            GUI.Label(new Rect(20, 145, 280, 25), $"Reses en el corral: {_world.InCorral}/{_world.Total}", _style);
+            GUI.Box(new Rect(10, 160, 300, 85), GUIContent.none);
+            GUI.Label(new Rect(20, 165, 280, 25), $"Reses en el corral: {_world.InCorral}/{_world.Total}", _style);
             string status = _world.Complete ? $"¡Arreo completo en {clock}!" : _world.Started ? $"Tiempo: {clock}" : "Tiempo: arranca al moverse";
-            GUI.Label(new Rect(20, 170, 280, 25), status, _style);
+            GUI.Label(new Rect(20, 190, 280, 25), status, _style);
             if (_world.LocalRiderNearGate)
-                GUI.Label(new Rect(20, 197, 280, 25), $"E: {(_world.GateOpen ? "cerrar" : "abrir")} la puerta");
+                GUI.Label(new Rect(20, 217, 280, 25), $"E: {(_world.GateOpen ? "cerrar" : "abrir")} la puerta");
         }
     }
 }

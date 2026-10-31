@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a563febe005bd34c846f3bac56ee2f7, type: 3}
+  m_Name: VoiceSettings_Proto
+  m_EditorClassIdentifier: Arreo.Voice::Arreo.Voice.VoiceSettings
+  _sampleRate: 16000
+  _minSeconds: 5
+  _maxSeconds: 15
+  _targetPeak: 0.9
+  _maxGain: 8
+  _silencePeak: 0.02
+  _fixedCanto: {fileID: 8300000, guid: 5a0c66e2ffbfcd54499d0a086fd39d25, type: 3}
+  _partBytes: 8192
+  _partsPerSecond: 6
+  _volume: 1
+  _minDistance: 10
+  _maxDistance: 150
+  _fadeOutSeconds: 0.3

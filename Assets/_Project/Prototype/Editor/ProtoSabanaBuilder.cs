@@ -7,6 +7,7 @@ using Arreo.Horse;
 using Arreo.Net;
 using Arreo.Player;
 using Arreo.Rope;
+using Arreo.Voice;
 using FishNet.Component.Transforming;
 using FishNet.Managing;
 using FishNet.Managing.Object;
@@ -25,7 +26,7 @@ using UnityEngine.SceneManagement;
 namespace Arreo.Prototype.Editor
 {
     /// <summary>
-    /// DISPOSABLE (weeks 2-7 prototype): builds the Proto_Sabana test scene from code.
+    /// DISPOSABLE (weeks 2-10 prototype): builds the Proto_Sabana test scene from code.
     /// Rebuilding overwrites the scene but keeps the settings assets, so tuning survives.
     /// Since week 5 the horse and rider are a network player prefab spawned per player; scene
     /// objects that need the local rider get it at runtime from ProtoLocalRiderBinder.
@@ -49,6 +50,10 @@ namespace Arreo.Prototype.Editor
         private const string EconomySettingsPath = EconomySettingsFolder + "/EconomySettings_Proto.asset";
         private const string ClockSettingsFolder = "Assets/_Project/Data/Clock";
         private const string ClockSettingsPath = ClockSettingsFolder + "/ClockSettings_Proto.asset";
+        private const string VoiceSettingsFolder = "Assets/_Project/Data/Voice";
+        private const string VoiceSettingsPath = VoiceSettingsFolder + "/VoiceSettings_Proto.asset";
+        // The game's fixed canto (rule 4), played for players who never recorded theirs.
+        public const string FixedCantoPath = "Assets/_Project/Audio/Canto_Fijo.wav";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string BenchmarkPlayerPath = "Build/Benchmark/Arreo.exe";
         private const string NetworkTestPlayerPath = "Build/NetworkTest/Arreo.exe";
@@ -85,6 +90,7 @@ namespace Arreo.Prototype.Editor
             EnsureFolder(CameraSettingsFolder);
             EnsureFolder(EconomySettingsFolder);
             EnsureFolder(ClockSettingsFolder);
+            EnsureFolder(VoiceSettingsFolder);
 
             // Load every asset only after NewScene: it unloads unused assets, and a settings asset
             // loaded before it came back as a dead reference (that left ProtoCameraRig without settings).
@@ -161,6 +167,22 @@ namespace Arreo.Prototype.Editor
             SetReference(networkManager.GetComponent<ProtoNetworkMenu>(), "_save", save);
             SetReference(world, "_save", save);
             SetReference(hud, "_save", save);
+
+            // The canto (rule 4): this computer's profile, the microphone and the "Grabar mi canto" menu.
+            var voice = networkManager.gameObject.AddComponent<VoiceProfile>();
+            var recorderObject = new GameObject("CantoRecorder");
+            var preview = recorderObject.AddComponent<AudioSource>();
+            preview.playOnAwake = false;
+            preview.spatialBlend = 0f;
+            var recorder = recorderObject.AddComponent<CantoRecorder>();
+            SetReference(recorder, "_settings", LoadVoiceSettings());
+            SetReference(recorder, "_preview", preview);
+            var cantoMenu = new GameObject("ProtoCantoMenu").AddComponent<ProtoCantoMenu>();
+            SetReference(cantoMenu, "_recorder", recorder);
+            SetReference(cantoMenu, "_profile", voice);
+            SetReference(networkManager.GetComponent<ProtoNetworkMenu>(), "_cantoMenu", cantoMenu);
+            SetReference(networkManager.GetComponent<ProtoNetworkMenu>(), "_voice", voice);
+            SetReference(hud, "_voice", voice);
             var binder = new GameObject("ProtoLocalRiderBinder").AddComponent<ProtoLocalRiderBinder>();
             SetReference(binder, "_cameraRig", cameraRig);
             SetReference(binder, "_hud", hud);
@@ -171,6 +193,7 @@ namespace Arreo.Prototype.Editor
             SetReference(bot, "_herd", herd);
             new GameObject("ProtoSaleBot").AddComponent<ProtoSaleBot>();
             new GameObject("ProtoGoToBot").AddComponent<ProtoGoToBot>();
+            new GameObject("ProtoCantoBot").AddComponent<ProtoCantoBot>();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssignSceneIds(scene);
@@ -222,6 +245,13 @@ namespace Arreo.Prototype.Editor
             asset = ScriptableObject.CreateInstance<T>();
             AssetDatabase.CreateAsset(asset, path);
             return asset;
+        }
+
+        private static VoiceSettings LoadVoiceSettings()
+        {
+            var settings = LoadOrCreate<VoiceSettings>(VoiceSettingsPath);
+            SetReference(settings, "_fixedCanto", AssetDatabase.LoadAssetAtPath<AudioClip>(FixedCantoPath));
+            return settings;
         }
 
         private static void CreateGround()
@@ -322,6 +352,19 @@ namespace Arreo.Prototype.Editor
             SetReference(rider, "_cameraTarget", cameraTarget);
 
             // Each player's lasso rides with their horse; only the host simulates it.
+            // Each player's canto: sent once per session, sung in 3D from the rider's head.
+            var cantoSource = new GameObject("Canto");
+            cantoSource.transform.SetParent(root.transform, false);
+            cantoSource.transform.localPosition = new Vector3(0f, 2.95f, 0.1f);
+            var voice = cantoSource.AddComponent<AudioSource>();
+            voice.playOnAwake = false;
+            voice.spatialBlend = 1f;
+            var canto = root.AddComponent<NetworkCanto>();
+            SetReference(canto, "_rider", rider);
+            SetReference(canto, "_settings", LoadVoiceSettings());
+            SetReference(canto, "_voice", voice);
+            SetReference(rider, "_canto", canto);
+
             var rope = root.AddComponent<RopeSimulation>();
             SetReference(rope, "_settings", LoadOrCreate<RopeSettings>(RopeSettingsPath));
             SetReference(rope, "_saddleBody", root.GetComponent<Rigidbody>());
@@ -393,6 +436,7 @@ namespace Arreo.Prototype.Editor
             SetReference(input, "_move", FindAction("Player/Move"));
             SetReference(input, "_gallop", FindAction("Player/Sprint"));
             SetReference(input, "_slowWalk", FindAction("Player/SlowWalk"));
+            SetReference(input, "_sing", FindAction("Player/Sing"));
 
             return controller;
         }
