@@ -89,6 +89,13 @@ Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testResult
 - **Cinco jugadores:** `.\measure-players.ps1 -Herd 20` (o `-Herd 50`) corre el Network Test Player como anfitrión más 4 clientes con bots (`-arreoWaitPlayers`) en esta máquina y resume cada informe: FPS y percentiles, en qué se va el frame (marcadores del Profiler leídos con `ProfilerRecorder`), memoria y bytes recibidos; la subida del anfitrión es la suma de lo que reciben los clientes. MPPM solo llega a 4 jugadores.
 - **Dos jugadores automáticos:** las pruebas PlayMode `ProtoFairNetworkTests`, `ProtoSaveTests` y `ProtoCantoTests` hospedan en el Editor y lanzan el Network Test Player como cliente en segundo plano. En la primera, el cliente vende en la feria (`-arreoSellTest <informe>`, `ProtoSaleBot`) y la prueba compara la plata y las reses que ve cada máquina. En la segunda, el cliente se para en un punto conocido (`-arreoGoTo x,z`, `ProtoGoToBot`), se guarda, se cierra todo, se continúa y se comprueba que todo volvió donde estaba. En la tercera, cada máquina tiene su propio canto de prueba (`-arreoProfileDir`). El cliente se para a 30 m de la manada y canta (`-arreoCantoTest <informe>`, `ProtoCantoBot`). La prueba comprueba que su canto llega entero al anfitrión y que el del anfitrión llega al cliente. También comprueba que se calman las reses que lo oyen, y solo esas. Antes de correr, compila el Network Test Player si alguna fuente de `Assets/_Project` es más nueva que la última compilación de la prueba (marca `Build/NetworkTest/built-for-tests.txt`): esa primera corrida tarda unos minutos más.
 
+## Bugs conocidos
+
+Rarezas de posición en red, sin explicar todavía. Revisarlas antes de tocar `NetworkTransform`, `SnapshotBuffer` o los bots.
+
+- **Saltos de reses con 20 reses (semana 8):** en la medición con 5 jugadores (`measure-players.ps1`), la métrica de saltos de reses (`MotionSmoothness`, informe de `ProtoNetBot`) marcó 18–20 en todas las máquinas con 20 reses y 0 con 50. Sospecha: las sogas de los bots dan tirones a las reses. Sin investigar.
+- **Caballo a 21,8 m de altura (semana 10):** en una corrida de `ProtoCantoTests`, el anfitrión vio el caballo del cliente en (45,1; 21,8; 24,9), justo en el punto al que lo teletransporta `ProtoGoToBot` (`-arreoGoTo 45,25`). En la corrida anterior estaba en el suelo (y = 0). Ahí no hay ningún obstáculo y el registro del cliente no muestra ninguna caída. La prueba no falla porque el canto mide distancias sobre el suelo. Sin investigar.
+
 ## Cómo trabajar en este repo
 
 - Antes de cambiar algo grande, revisar el registro de decisiones. Una decisión sellada (D01–D70) no se cambia en silencio: si hay que tocarla, proponer el cambio y anotarlo con fecha.
