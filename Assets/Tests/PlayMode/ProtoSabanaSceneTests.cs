@@ -29,6 +29,7 @@ namespace Arreo.Tests.PlayMode
         private Mouse _mouse;
         private NetworkManager _network;
         private string _saveFolder;
+        private string _voiceFolder;
         private InputSettings.BackgroundBehavior _backgroundBehavior;
         private InputSettings.EditorInputBehaviorInPlayMode _editorInputBehavior;
 
@@ -48,6 +49,7 @@ namespace Arreo.Tests.PlayMode
 
             // Host a game ("Crear partida") and wait for this machine's own rider.
             _saveFolder = TestSaves.UseFolder();
+            _voiceFolder = TestVoice.UseFolder();
             _network = Object.FindFirstObjectByType<NetworkManager>();
             Object.FindFirstObjectByType<Arreo.Prototype.ProtoNetworkMenu>().Host();
             for (float t = 0f; t < 10f && NetworkRider.Local == null; t += Time.unscaledDeltaTime)
@@ -77,6 +79,7 @@ namespace Arreo.Tests.PlayMode
             SceneManager.SetActiveScene(SceneManager.CreateScene("AfterProtoSabana"));
             yield return SceneManager.UnloadSceneAsync(proto);
             TestSaves.Delete(_saveFolder);
+            TestVoice.Delete(_voiceFolder);
         }
 
         [UnityTest]
@@ -297,6 +300,36 @@ namespace Arreo.Tests.PlayMode
             SaveLoadResult saved = save.Store.Load();
             Assert.That(saved.Status, Is.EqualTo(SaveLoadStatus.Loaded), "the new day did not save the game");
             Assert.That(saved.Data.clock.day, Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator Hosting_HoldingV_SingsTheFixedCanto_AndCalmsTheCowsNearby()
+        {
+            ActiveHerd herd = NetworkHerd.Instance.Herd;
+            NetworkCanto canto = NetworkRider.Local.Canto;
+            // The test profile has no recording: the game's own canto plays.
+            Assert.That(canto.Canto, Is.Null);
+            MoveLocalRiderTo(herd.transform.position + new Vector3(0f, 0.05f, -16f));
+            yield return new WaitForSeconds(0.5f);
+            Assert.That(herd.CalmedByCanto, Is.EqualTo(0), "the herd is calm before anyone sings");
+
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.V));
+                yield return new WaitForSeconds(3f);
+                Assert.That(canto.IsSinging, Is.True, "holding V did not sing");
+                Assert.That(herd.CalmedByCanto, Is.GreaterThan(0), "no cow heard the canto");
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return new WaitForSeconds(0.5f);
+                Assert.That(canto.IsSinging, Is.False, "letting go of V did not stop the canto");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+            Assert.That(_errors, Is.Empty, "Console errors or warnings while singing:\n" + string.Join("\n", _errors));
         }
 
         private static IEnumerator Press(Keyboard keyboard, Key key)

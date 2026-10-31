@@ -33,15 +33,21 @@ namespace Arreo.Tests.PlayMode
         private Process _client;
         private string _clientLog;
         private string _saveFolder;
+        private string _voiceFolder;
 
         [SetUp]
-        public void SetUp() => _saveFolder = TestSaves.NewFolder();
+        public void SetUp()
+        {
+            _saveFolder = TestSaves.NewFolder();
+            _voiceFolder = TestVoice.NewFolder();
+        }
 
         [UnityTearDown]
         public IEnumerator TearDown()
         {
             yield return Close();
             TestSaves.Delete(_saveFolder);
+            TestVoice.Delete(_voiceFolder);
         }
 
         [UnityTest]
@@ -133,6 +139,7 @@ namespace Arreo.Tests.PlayMode
         {
             yield return EditorSceneManager.LoadSceneAsyncInPlayMode(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
             TestSaves.UseFolder(_saveFolder);
+            TestVoice.UseFolder(_voiceFolder);
             _network = Object.FindFirstObjectByType<NetworkManager>();
             var menu = Object.FindFirstObjectByType<Arreo.Prototype.ProtoNetworkMenu>();
             if (continueGame)

@@ -34,6 +34,7 @@ namespace Arreo.Tests.PlayMode
 
         private NetworkManager _network;
         private string _saveFolder;
+        private string _voiceFolder;
         private Process _client;
         private string _report;
         private string _clientLog;
@@ -43,6 +44,7 @@ namespace Arreo.Tests.PlayMode
         {
             yield return EditorSceneManager.LoadSceneAsyncInPlayMode(ScenePath, new LoadSceneParameters(LoadSceneMode.Single));
             _saveFolder = TestSaves.UseFolder();
+            _voiceFolder = TestVoice.UseFolder();
             _network = Object.FindFirstObjectByType<NetworkManager>();
             Object.FindFirstObjectByType<Arreo.Prototype.ProtoNetworkMenu>().Host();
             for (float t = 0f; t < 10f && NetworkRider.Local == null; t += Time.unscaledDeltaTime)
@@ -66,6 +68,7 @@ namespace Arreo.Tests.PlayMode
             SceneManager.SetActiveScene(SceneManager.CreateScene("AfterProtoFair"));
             yield return SceneManager.UnloadSceneAsync(proto);
             TestSaves.Delete(_saveFolder);
+            TestVoice.Delete(_voiceFolder);
         }
 
         [UnityTest]

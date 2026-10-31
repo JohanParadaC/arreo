@@ -20,7 +20,8 @@ if (-not (Test-Path $exe)) {
 }
 New-Item -ItemType Directory -Force $Out | Out-Null
 Get-ChildItem $Out -Filter *.txt | Remove-Item
-$common = "-arreoMeasure $Seconds -arreoWaitPlayers $Players"
+# An empty voice profile: the copies sing the fixed canto and send no recording while measuring.
+$common = "-arreoMeasure $Seconds -arreoWaitPlayers $Players -arreoProfileDir `"$Out\profile`""
 $window = '-screen-fullscreen 0 -screen-width 1280 -screen-height 720'
 
 # The host saves into $Out, not over your real saved game.
