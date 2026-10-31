@@ -197,5 +197,71 @@ namespace Arreo.Tests.EditMode
 
             Assert.That(velocity, Is.EqualTo(Vector3.zero));
         }
+
+        // The cabrestero's canto (rule 4): fear x0.25 and cohesion x2.5 for a cow that fully hears it.
+        private static HerdSteering CreateSteeringWithCanto() => new HerdSteering(
+            separationRadius: 2.5f, neighborRadius: 12f, separationStrength: 3f, alignmentWeight: 0.6f, cohesionStrength: 0.15f,
+            fleeSpeed: 6f, panicSpeed: 8f,
+            new RiderFear(fearRadius: 15f, gallopRadiusMultiplier: 2f, stillIntensity: 0.5f,
+                gallopReferenceSpeed: 12f, panicStartSpeed: 6f, flightZoneRadius: 8f),
+            flightZoneSpeed: 2.2f,
+            new CantoCalm(radius: 30f, fullRadius: 15f, fearReduction: 0.75f, cohesionBoost: 1.5f, riseSeconds: 2f, fadeSeconds: 4f));
+
+        [Test]
+        public void Canto_GallopingRiderScaresACalmCowFarLess()
+        {
+            // Rider at 12 m, past the flight zone, so all of the flight is fear.
+            var riders = new[] { new RiderSample(new Vector3(0f, 0f, -12f), GallopingRider, singing: true) };
+            HerdSteering steering = CreateSteeringWithCanto();
+
+            float scared = steering.DesiredVelocity(0, new[] { Vector3.zero }, new[] { Vector3.zero }, riders, cantoCalm: 0f).magnitude;
+            float calmed = steering.DesiredVelocity(0, new[] { Vector3.zero }, new[] { Vector3.zero }, riders, cantoCalm: 1f).magnitude;
+
+            Assert.That(scared, Is.EqualTo(6f * 0.6f).Within(0.001f), "fear (1 - 12/30) x flee speed 6");
+            Assert.That(calmed, Is.EqualTo(scared * 0.25f).Within(0.001f));
+        }
+
+        [Test]
+        public void Canto_CalmCowIsPulledHarderTowardItsHerdMates()
+        {
+            // No rider near: the x part is pure cohesion, 10 m * 0.15 = 1.5 m/s, x2.5 with the canto.
+            var positions = new[] { Vector3.zero, new Vector3(10f, 0f, 0f) };
+            var velocities = new[] { Vector3.zero, Vector3.zero };
+            HerdSteering steering = CreateSteeringWithCanto();
+
+            float apart = steering.DesiredVelocity(0, positions, velocities, new RiderSample[0], cantoCalm: 0f).x;
+            float together = steering.DesiredVelocity(0, positions, velocities, new RiderSample[0], cantoCalm: 1f).x;
+
+            Assert.That(apart, Is.EqualTo(1.5f).Within(0.001f));
+            Assert.That(together, Is.EqualTo(3.75f).Within(0.001f));
+        }
+
+        [Test]
+        public void Canto_GallopingSingerScattersTheHerdLess()
+        {
+            // Herd mate along +x, rider along -z: panic fades cohesion, and the canto takes panic away.
+            var positions = new[] { Vector3.zero, new Vector3(10f, 0f, 0f) };
+            var velocities = new[] { Vector3.zero, Vector3.zero };
+            var riders = new[] { new RiderSample(new Vector3(0f, 0f, -5f), GallopingRider, singing: true) };
+            HerdSteering steering = CreateSteeringWithCanto();
+
+            float towardHerdScared = steering.DesiredVelocity(0, positions, velocities, riders, cantoCalm: 0f).x;
+            float towardHerdCalmed = steering.DesiredVelocity(0, positions, velocities, riders, cantoCalm: 1f).x;
+
+            Assert.That(towardHerdCalmed, Is.GreaterThan(towardHerdScared * 2f));
+        }
+
+        [Test]
+        public void Canto_NotHeard_ChangesNothing()
+        {
+            var positions = new[] { Vector3.zero, new Vector3(6f, 0f, 2f) };
+            var velocities = new[] { Vector3.zero, new Vector3(1f, 0f, 1f) };
+            var riders = new[] { new RiderSample(new Vector3(0f, 0f, -7f), GallopingRider) };
+
+            Vector3 without = CreateSteering().DesiredVelocity(0, positions, velocities, riders);
+            Vector3 unheard = CreateSteeringWithCanto().DesiredVelocity(0, positions, velocities, riders, cantoCalm: 0f);
+
+            Assert.That(Vector3.Distance(without, unheard), Is.LessThan(0.0001f));
+        }
     }
 }

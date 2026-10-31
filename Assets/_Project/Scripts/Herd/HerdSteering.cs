@@ -6,7 +6,8 @@ namespace Arreo.Herd
     /// <summary>
     /// Combines the boids rules and fear of the rider into the velocity (m/s, on the ground)
     /// a cow wants. Panic fades cohesion and alignment and boosts separation, so a galloping
-    /// rider scatters the herd while a walking one moves it as a group.
+    /// rider scatters the herd while a walking one moves it as a group. The cabrestero's canto
+    /// (<see cref="CantoCalm"/>) works the other way: less fear, more cohesion.
     /// </summary>
     public sealed class HerdSteering
     {
@@ -19,6 +20,7 @@ namespace Arreo.Herd
         private readonly float _panicSpeed;
         private readonly RiderFear _fear;
         private readonly float _flightZoneSpeed;
+        private readonly CantoCalm _canto;
         // Reused so the single-rider overload doesn't allocate every call.
         private readonly RiderSample[] _singleRider = new RiderSample[1];
 
@@ -28,8 +30,10 @@ namespace Arreo.Herd
         /// <param name="fleeSpeed">Top speed when fully scared.</param>
         /// <param name="panicSpeed">Top speed when fully panicked.</param>
         public HerdSteering(float separationRadius, float neighborRadius, float separationStrength,
-            float alignmentWeight, float cohesionStrength, float fleeSpeed, float panicSpeed, RiderFear fear, float flightZoneSpeed)
+            float alignmentWeight, float cohesionStrength, float fleeSpeed, float panicSpeed, RiderFear fear, float flightZoneSpeed,
+            CantoCalm canto = null)
         {
+            _canto = canto;
             _separationRadius = separationRadius;
             _neighborRadius = neighborRadius;
             _separationStrength = separationStrength;
@@ -53,8 +57,17 @@ namespace Arreo.Herd
         /// frightening one decides how panicked it gets.
         /// </summary>
         public Vector3 DesiredVelocity(int self, IReadOnlyList<Vector3> positions, IReadOnlyList<Vector3> velocities,
-            IReadOnlyList<RiderSample> riders)
+            IReadOnlyList<RiderSample> riders) => DesiredVelocity(self, positions, velocities, riders, 0f);
+
+        /// <param name="cantoCalm">
+        /// How calm the cabrestero's canto has made this cow (0-1, see <see cref="CantoCalm"/>): it
+        /// fears riders less, so it also panics less, and sticks closer to its herd mates.
+        /// </param>
+        public Vector3 DesiredVelocity(int self, IReadOnlyList<Vector3> positions, IReadOnlyList<Vector3> velocities,
+            IReadOnlyList<RiderSample> riders, float cantoCalm)
         {
+            float fearScale = _canto != null ? _canto.FearScale(cantoCalm) : 1f;
+            float cohesionScale = _canto != null ? _canto.CohesionScale(cantoCalm) : 1f;
             Vector3 position = positions[self];
             Vector3 flee = Vector3.zero;
             float panic = 0f;
@@ -62,7 +75,7 @@ namespace Arreo.Herd
             {
                 RiderSample rider = riders[i];
                 float distance = BoidRules.Flatten(position - rider.Position).magnitude;
-                float fear = _fear.Fear(distance, rider.Speed);
+                float fear = _fear.Fear(distance, rider.Speed) * fearScale;
                 panic = Mathf.Max(panic, _fear.Panic(fear, rider.Speed));
                 // The flight zone only sets a minimum walking pace; it adds no panic.
                 float fleeSpeed = Mathf.Max(fear * _fleeSpeed, _fear.InFlightZone(distance) ? _flightZoneSpeed : 0f);
@@ -73,7 +86,7 @@ namespace Arreo.Herd
             Vector3 velocity =
                 BoidRules.Separation(self, positions, _separationRadius) * (_separationStrength * (1f + panic))
                 + BoidRules.Alignment(self, positions, velocities, _neighborRadius) * (_alignmentWeight * calm)
-                + BoidRules.Cohesion(self, positions, _neighborRadius) * (_cohesionStrength * calm)
+                + BoidRules.Cohesion(self, positions, _neighborRadius) * (_cohesionStrength * calm * cohesionScale)
                 + flee;
 
             return Vector3.ClampMagnitude(velocity, Mathf.Lerp(_fleeSpeed, _panicSpeed, panic));

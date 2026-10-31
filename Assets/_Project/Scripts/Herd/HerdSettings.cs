@@ -54,6 +54,20 @@ namespace Arreo.Herd
         [Tooltip("Acceleration of a stampeding cow (m/s²). Its pull on a rope is mass × this: 400 kg × 9 ≈ 3600 N.")]
         [SerializeField, Min(0.1f)] private float _panicAcceleration = 9f;
 
+        [Header("Canto del cabrestero (rule 4)")]
+        [Tooltip("Cows closer than this to a singing rider hear the canto at full strength (m).")]
+        [SerializeField, Min(0f)] private float _cantoFullRadius = 20f;
+        [Tooltip("Beyond this distance from the singer a cow doesn't hear the canto at all (m). Between the two radii it hears less and less.")]
+        [SerializeField, Min(0.1f)] private float _cantoRadius = 35f;
+        [Tooltip("Share of the fear of riders a cow that fully hears the canto no longer feels (0-1). Panic comes from fear, so it drops too: 0.75 = a galloping rider scares like one at a quarter of the fear.")]
+        [SerializeField, Range(0f, 1f)] private float _cantoFearReduction = 0.75f;
+        [Tooltip("Extra cohesion of a cow that fully hears the canto: 1.5 = it keeps to its herd mates 2.5 times as strongly, so the herd bunches up.")]
+        [SerializeField, Min(0f)] private float _cantoCohesionBoost = 1.5f;
+        [Tooltip("Seconds of hearing the canto it takes a cow to be fully calm.")]
+        [SerializeField, Min(0.01f)] private float _cantoRiseSeconds = 1.5f;
+        [Tooltip("Seconds the calm takes to fade once the canto stops or the cow is out of earshot: the herd stays calm for a while after the song.")]
+        [SerializeField, Min(0.01f)] private float _cantoFadeSeconds = 6f;
+
         public float Acceleration => _acceleration;
         public float PanicAcceleration => _panicAcceleration;
 
@@ -65,6 +79,9 @@ namespace Arreo.Herd
             _separationRadius, _neighborRadius, _separationStrength, _alignmentWeight, _cohesionStrength,
             _fleeSpeed, _panicSpeed,
             new RiderFear(_fearRadius, _gallopRadiusMultiplier, _stillIntensity, _gallopReferenceSpeed, _panicStartSpeed, _flightZoneRadius),
-            _flightZoneSpeed);
+            _flightZoneSpeed, CreateCantoCalm());
+
+        public CantoCalm CreateCantoCalm() => new CantoCalm(_cantoRadius, _cantoFullRadius, _cantoFearReduction,
+            _cantoCohesionBoost, _cantoRiseSeconds, _cantoFadeSeconds);
     }
 }

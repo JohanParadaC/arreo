@@ -10,7 +10,8 @@
         "Arreo.Rope",
         "Arreo.Player",
         "Arreo.Net",
-        "Arreo.Economy"
+        "Arreo.Economy",
+        "Arreo.Voice"
     ],
     "includePlatforms": [
         "Editor"

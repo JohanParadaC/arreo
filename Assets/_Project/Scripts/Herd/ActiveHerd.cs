@@ -7,7 +7,8 @@ namespace Arreo.Herd
     /// Active herd: spawns the cows and drives every cow's Rigidbody from <see cref="HerdSteering"/>
     /// each physics step. Cows keep their Rigidbody so a rope can pull them later. A cow that
     /// leaves the herd (sold, D29: for good) is hidden but keeps its index, so the network ids of
-    /// the others don't shift; the herd only steers the cows still in it.
+    /// the others don't shift; the herd only steers the cows still in it. A rider singing the canto
+    /// calms the cows that hear it (<see cref="CantoCalm"/>).
     /// </summary>
     public sealed class ActiveHerd : MonoBehaviour
     {
@@ -27,11 +28,14 @@ namespace Arreo.Herd
         private Vector3[] _velocities = new Vector3[0];
         private float[] _yaws = new float[0];
         private bool[] _present = new bool[0];
+        // How calm the canto has made each cow (0-1); it builds up and lingers, see CantoCalm.
+        private float[] _calm = new float[0];
         // The cows still in the herd, packed together for the steering rules (sold ones would still pull their neighbors).
         private readonly List<int> _steerIndices = new List<int>();
         private readonly List<Vector3> _steerPositions = new List<Vector3>();
         private readonly List<Vector3> _steerVelocities = new List<Vector3>();
         private HerdSteering _steering;
+        private CantoCalm _canto;
         private Stampede _stampede;
         private System.Func<IReadOnlyList<RiderSample>> _riderSource;
 
@@ -48,6 +52,12 @@ namespace Arreo.Herd
 
         /// <summary>Cows here are kinematic copies moved by the host's snapshots (network clients).</summary>
         public bool IsPuppet { get; private set; }
+
+        /// <summary>Host: how calm the cabrestero's canto has made each cow (by index), 0 to 1.</summary>
+        public IReadOnlyList<float> CalmFromCanto => _calm;
+
+        /// <summary>Host: cows in the herd that the canto has calmed at least halfway.</summary>
+        public int CalmedByCanto { get; private set; }
 
         /// <summary>Every rider the cows fear, asked each physics step (all players' horses in a network game).</summary>
         public void SetRiderSource(System.Func<IReadOnlyList<RiderSample>> source) => _riderSource = source;
@@ -116,6 +126,7 @@ namespace Arreo.Herd
                 return;
 
             _steering = _settings.CreateSteering();
+            _canto = _settings.CreateCantoCalm();
             _stampede = _settings.CreateStampede();
             var random = new System.Random(SpawnSeed);
             for (int i = 0; i < _count; i++)
@@ -139,6 +150,7 @@ namespace Arreo.Herd
             if (_present[index] == present)
                 return;
             _present[index] = present;
+            _calm[index] = 0f;
             PresentCount += present ? 1 : -1;
             _cows[index].gameObject.SetActive(present);
         }
@@ -188,6 +200,7 @@ namespace Arreo.Herd
             cow.linearVelocity = Vector3.zero;
             _positions[index] = position;
             _velocities[index] = Vector3.zero;
+            _calm[index] = 0f;
             _yaws[index] = rotation.eulerAngles.y;
         }
 
@@ -204,6 +217,7 @@ namespace Arreo.Herd
             _positions = new Vector3[count];
             _velocities = new Vector3[count];
             _yaws = new float[count];
+            _calm = new float[count];
             _present = new bool[count];
             for (int i = 0; i < count; i++)
                 _present[i] = true;
@@ -235,10 +249,14 @@ namespace Arreo.Herd
                 _steerVelocities.Add(_velocities[i]);
             }
 
+            int calmed = 0;
             for (int j = 0; j < _steerIndices.Count; j++)
             {
                 int i = _steerIndices[j];
-                Vector3 desired = _steering.DesiredVelocity(j, _steerPositions, _steerVelocities, riders);
+                _calm[i] = _canto.Step(_calm[i], _canto.Hearing(_positions[i], riders), dt);
+                if (_calm[i] >= 0.5f)
+                    calmed++;
+                Vector3 desired = _steering.DesiredVelocity(j, _steerPositions, _steerVelocities, riders, _calm[i]);
                 if (panic > 0f)
                     desired = Vector3.Lerp(desired, _steering.StampedeVelocity(j, _steerPositions, _stampede.Origin, 1f), panic);
                 if (desired.sqrMagnitude < _settings.MinMoveSpeed * _settings.MinMoveSpeed)
@@ -255,6 +273,7 @@ namespace Arreo.Herd
                     cow.MoveRotation(Quaternion.RotateTowards(cow.rotation, facing, _settings.TurnSpeed * dt));
                 }
             }
+            CalmedByCanto = calmed;
         }
 
         private readonly RiderSample[] _single = new RiderSample[1];

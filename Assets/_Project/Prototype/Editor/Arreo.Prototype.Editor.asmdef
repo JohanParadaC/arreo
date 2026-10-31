@@ -9,6 +9,7 @@
         "Arreo.Player",
         "Arreo.Net",
         "Arreo.Economy",
+        "Arreo.Voice",
         "FishNet.Runtime",
         "Arreo.Prototype",
         "Unity.Cinemachine",
